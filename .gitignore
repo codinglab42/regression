@@ -1,0 +1,55 @@
+# ----------------------------------------
+# 1. DIRECTORY DI BUILD E COMPILAZIONE (C++/CMAKE)
+# ----------------------------------------
+
+# Ignora la cartella di compilazione principale e tutto il suo contenuto.
+/build
+/lib
+/ml_algorithms/build/
+/pyBindAlgorithms/build
+
+# Ignora i file di output compilati, nel caso in cui finiscano altrove
+lib/*.o             # File oggetto
+lib/*.a             # Librerie statiche (come libml_algorithms.a)
+lib/*.so            # Librerie dinamiche (come ml_algorithms_py.so)
+lib/*.dll
+lib/*.lib
+lib/pymlalgorithms*
+lib/*.cpython
+
+
+# ----------------------------------------
+# 2. PYTHON E PYENV
+# ----------------------------------------
+
+# Cartelle e file di cache di Python
+__pycache__/
+*.pyc
+
+# Ignora l'ambiente virtuale (anche se pyenv gestisce versioni isolate, è buona norma)
+venv/
+env/
+
+# Artifacts di setuptools/pip (se compili moduli in modo standard)
+build/          # Regola generica di fallback per altre cartelle build
+dist/
+*.egg-info/
+
+
+# ----------------------------------------
+# 3. IDE (VISUAL STUDIO CODE) E CACHE
+# ----------------------------------------
+
+# Ignora la cache di C/C++ IntelliSense
+.vscode/*.log
+.vscode/.browse.vc.db
+# Potresti voler ignorare l'intera cartella .vscode/ se non condividi le impostazioni
+# Se tracci .vscode/settings.json, usa le eccezioni, altrimenti ignora tutto:
+.vscode/
+
+# ----------------------------------------
+# 4. VARIE E LOG
+# ----------------------------------------
+*.log
+*.tmp
+
