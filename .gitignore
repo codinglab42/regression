@@ -7,6 +7,7 @@
 /lib
 /ml_algorithms/build/
 /pyBindAlgorithms/build
+/output
 
 # Ignora i file di output compilati, nel caso in cui finiscano altrove
 lib/*.o             # File oggetto
@@ -53,3 +54,4 @@ dist/
 *.log
 *.tmp
 
+compile_commands.json

@@ -1,0 +1,68 @@
+#!/usr/bin/env python3
+"""
+Test script for Python bindings of regression library.
+"""
+
+import sys
+import os
+import numpy as np
+
+# Add the build directory to Python path
+build_dir = "@CMAKE_LIBRARY_OUTPUT_DIRECTORY@"
+sys.path.insert(0, build_dir)
+
+print(f"Testing from directory: {build_dir}")
+print(f"Python version: {sys.version}")
+
+try:
+    import regression
+    print("✓ Successfully imported regression module")
+    print(f"  Module version: {getattr(regression, '__version__', 'N/A')}")
+    
+    # Test Linear Regression
+    print("\n" + "="*50)
+    print("Testing Linear Regression...")
+    
+    # Create sample data
+    X = np.array([[1], [2], [3], [4], [5]], dtype=np.float64)
+    y = np.array([1, 2, 3, 4, 5], dtype=np.float64)
+    
+    # Create and fit model
+    lr = regression.LinearRegression(learning_rate=0.01, max_iter=1000)
+    lr.fit(X, y)
+    
+    print(f"  Coefficients: {lr.coefficients()}")
+    print(f"  Intercept: {lr.intercept()}")
+    print(f"  R2 Score: {lr.score(X, y):.6f}")
+    
+    # Test prediction
+    X_test = np.array([[6], [7]], dtype=np.float64)
+    predictions = lr.predict(X_test)
+    print(f"  Predictions for [6, 7]: {predictions}")
+    
+    # Test Logistic Regression
+    print("\n" + "="*50)
+    print("Testing Logistic Regression...")
+    
+    X_log = np.array([[1, 1], [2, 1], [3, 1], [4, 1], [5, 1], [6, 1]], dtype=np.float64)
+    y_log = np.array([0, 0, 0, 1, 1, 1], dtype=np.float64)
+    
+    logr = regression.LogisticRegression(learning_rate=0.1, max_iter=1000)
+    logr.fit(X_log, y_log)
+    
+    print(f"  Coefficients: {logr.coefficients()}")
+    print(f"  Accuracy: {logr.score(X_log, y_log):.6f}")
+    
+    # Test prediction
+    test_sample = np.array([[3.5, 1]], dtype=np.float64)
+    prob = logr.predict(test_sample)[0]
+    print(f"  Probability for [3.5, 1]: {prob:.6f}")
+    
+    print("\n" + "="*50)
+    print("✓ All Python binding tests passed!")
+    
+except Exception as e:
+    print(f"\n✗ Error during testing: {e}")
+    import traceback
+    traceback.print_exc()
+    sys.exit(1)
