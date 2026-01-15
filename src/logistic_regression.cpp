@@ -23,10 +23,10 @@ LogisticRegression::LogisticRegression(double lr, int iter, double lb, double to
 
 void LogisticRegression::fit_scaler(const MatrixXd& X) {
     scaler_.mean = X.colwise().mean();
-    scaler_.std = ((X.rowwise() - scaler_.mean.transpose()).array().square().colwise().sum() / X.rows()).sqrt();
+    scaler_.std = ((X.rowwise() - scaler_.mean.transpose()).array().square().colwise().sum() / static_cast<double>(X.rows())).sqrt();
     
     // Gestione feature costanti
-    for (int i = 0; i < scaler_.std.size(); ++i) {
+    for (Eigen::Index i = 0; i < scaler_.std.size(); ++i) {
         if (scaler_.std(i) < 1e-9) scaler_.std(i) = 1.0;
     }
     
@@ -50,19 +50,19 @@ void LogisticRegression::fit(const MatrixXd& X, const VectorXd& y) {
         throw std::invalid_argument("y must contain only 0 and 1 values for logistic regression");
     }
     
-    n_features_ = X.cols();
+    n_features_ = static_cast<int>(X.cols());
     fit_scaler(X);
     MatrixXd X_int = MathUtils::add_intercept(transform(X));  // Usa MathUtils
-    int m = X.rows();
+    Eigen::Index m = X.rows();
     theta_ = VectorXd::Zero(X_int.cols());
     cost_history_.clear();
 
     for (n_iter_ = 0; n_iter_ < max_iter_; ++n_iter_) {
         VectorXd h = MathUtils::sigmoid_vec(X_int * theta_);  // Usa MathUtils
-        VectorXd gradient = (X_int.transpose() * (h - y)) / m;
+        VectorXd gradient = (X_int.transpose() * (h - y)) / static_cast<double>(m);
         
         if (lambda_ > 0) {
-            VectorXd reg = (lambda_ / m) * theta_;
+            VectorXd reg = (lambda_ / static_cast<double>(m)) * theta_;
             reg(0) = 0;
             gradient += reg;
         }
@@ -90,7 +90,7 @@ void LogisticRegression::fit(const MatrixXd& X, const VectorXd& y) {
 double LogisticRegression::compute_cost(const MatrixXd& X, const VectorXd& y) const {
     MatrixXd X_int = MathUtils::add_intercept(transform(X));  // Usa MathUtils
     VectorXd h = MathUtils::sigmoid_vec(X_int * theta_);  // Usa MathUtils
-    double m = X.rows();
+    double m = static_cast<double>(X.rows());
     
     // Usa log safe per evitare log(0)
     VectorXd log_h = MathUtils::safe_log(h);
@@ -99,7 +99,7 @@ double LogisticRegression::compute_cost(const MatrixXd& X, const VectorXd& y) co
     double J = -(y.dot(log_h) + (1 - y.array()).matrix().dot(log_1_h)) / m;
     
     if (lambda_ > 0) {
-        J += (lambda_ / (2 * m)) * theta_.tail(n_features_).squaredNorm();
+        J += (lambda_ / (2.0 * m)) * theta_.tail(n_features_).squaredNorm();
     }
     
     return J;
@@ -128,10 +128,10 @@ MatrixXd LogisticRegression::confusion_matrix(const MatrixXd& X, const VectorXd&
     VectorXi y_pred = predict_class(X, threshold);
     MatrixXd cm = MatrixXd::Zero(2, 2);
     
-    for (int i = 0; i < y.size(); ++i) {
+    for (Eigen::Index i = 0; i < y.size(); ++i) {
         int actual = static_cast<int>(y(i));
-        int predicted = y_pred(i);
-        cm(actual, predicted) += 1;
+        int predicted = y_pred(static_cast<Eigen::Index>(i));
+        cm(actual, predicted) += 1.0;
     }
     
     return cm;
@@ -146,7 +146,7 @@ Vector3d LogisticRegression::precision_recall_f1(const MatrixXd& X, const Vector
     
     double precision = tp / (tp + fp + 1e-9);
     double recall = tp / (tp + fn + 1e-9);
-    double f1 = 2 * precision * recall / (precision + recall + 1e-9);
+    double f1 = 2.0 * precision * recall / (precision + recall + 1e-9);
     
     return Vector3d(precision, recall, f1);
 }
@@ -158,18 +158,24 @@ void LogisticRegression::save(const std::string& filename) const {
     }
     
     file.write(reinterpret_cast<const char*>(&n_features_), sizeof(int));
-    int ts = theta_.size();
-    file.write(reinterpret_cast<const char*>(&ts), sizeof(int));
-    file.write(reinterpret_cast<const char*>(theta_.data()), ts * sizeof(double));
+    Eigen::Index ts = theta_.size();
+    int ts_int = static_cast<int>(ts);
+    file.write(reinterpret_cast<const char*>(&ts_int), sizeof(int));
+    std::size_t data_size = static_cast<std::size_t>(ts) * sizeof(double);
+    std::streamsize stream_size = static_cast<std::streamsize>(data_size);
+    file.write(reinterpret_cast<const char*>(theta_.data()), stream_size);
     
     // Salva lo scaler
     bool has_scaler = scaler_.fit;
     file.write(reinterpret_cast<const char*>(&has_scaler), sizeof(bool));
     if (has_scaler) {
-        int mean_size = scaler_.mean.size();
-        file.write(reinterpret_cast<const char*>(&mean_size), sizeof(int));
-        file.write(reinterpret_cast<const char*>(scaler_.mean.data()), mean_size * sizeof(double));
-        file.write(reinterpret_cast<const char*>(scaler_.std.data()), mean_size * sizeof(double));
+        Eigen::Index mean_size = scaler_.mean.size();
+        int mean_size_int = static_cast<int>(mean_size);
+        file.write(reinterpret_cast<const char*>(&mean_size_int), sizeof(int));
+        std::size_t scaler_data_size = static_cast<std::size_t>(mean_size) * sizeof(double);
+        std::streamsize scaler_stream_size = static_cast<std::streamsize>(scaler_data_size);
+        file.write(reinterpret_cast<const char*>(scaler_.mean.data()), scaler_stream_size);
+        file.write(reinterpret_cast<const char*>(scaler_.std.data()), scaler_stream_size);
     }
     
     file.close();
@@ -182,22 +188,28 @@ void LogisticRegression::load(const std::string& filename) {
     }
     
     file.read(reinterpret_cast<char*>(&n_features_), sizeof(int));
-    int ts;
-    file.read(reinterpret_cast<char*>(&ts), sizeof(int));
+    int ts_int;
+    file.read(reinterpret_cast<char*>(&ts_int), sizeof(int));
+    Eigen::Index ts = static_cast<Eigen::Index>(ts_int);
     theta_.resize(ts);
-    file.read(reinterpret_cast<char*>(theta_.data()), ts * sizeof(double));
+    std::size_t data_size = static_cast<std::size_t>(ts) * sizeof(double);
+    std::streamsize stream_size = static_cast<std::streamsize>(data_size);
+    file.read(reinterpret_cast<char*>(theta_.data()), stream_size);
     
     // Carica lo scaler
     bool has_scaler;
     file.read(reinterpret_cast<char*>(&has_scaler), sizeof(bool));
     if (has_scaler) {
-        int mean_size;
-        file.read(reinterpret_cast<char*>(&mean_size), sizeof(int));
+        int mean_size_int;
+        file.read(reinterpret_cast<char*>(&mean_size_int), sizeof(int));
+        Eigen::Index mean_size = static_cast<Eigen::Index>(mean_size_int);
         scaler_.mean.resize(mean_size);
         scaler_.std.resize(mean_size);
         scaler_.fit = true;
-        file.read(reinterpret_cast<char*>(scaler_.mean.data()), mean_size * sizeof(double));
-        file.read(reinterpret_cast<char*>(scaler_.std.data()), mean_size * sizeof(double));
+        std::size_t scaler_data_size = static_cast<std::size_t>(mean_size) * sizeof(double);
+        std::streamsize scaler_stream_size = static_cast<std::streamsize>(scaler_data_size);
+        file.read(reinterpret_cast<char*>(scaler_.mean.data()), scaler_stream_size);
+        file.read(reinterpret_cast<char*>(scaler_.std.data()), scaler_stream_size);
     }
     
     file.close();

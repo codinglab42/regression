@@ -35,11 +35,16 @@ namespace regression {
         const std::vector<double>& cost_history() const { return cost_history_; }
     
     private:
-        Eigen::VectorXd theta_;
-        double learning_rate_, lambda_, tolerance_;
-        int max_iter_, n_features_, n_iter_;
-        Solver solver_;
+        
+        double learning_rate_;
+        int max_iter_;
+        double lambda_;
+        double tolerance_;
         bool verbose_;
+        Solver solver_;
+        int n_features_;
+        int n_iter_;
+        Eigen::VectorXd theta_;
         std::vector<double> cost_history_;
     
         struct Scaler {

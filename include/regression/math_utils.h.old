@@ -56,7 +56,7 @@ namespace regression {
         static Eigen::VectorXd compute_gradient_linear(const Eigen::MatrixXd& X, const Eigen::VectorXd& y, 
                                                        const Eigen::VectorXd& theta, double lambda = 0.0) {
             Eigen::Index m = X.rows();
-            Eigen::VectorXd gradient = (X.transpose() * (X * theta - y)) / static_cast<double>(m);
+            Eigen::VectorXd gradient = (X.transpose() * (X * theta - y)) / m;
                                                     
             if (lambda > 0) {
                 Eigen::VectorXd reg = (lambda / static_cast<double>(m)) * theta;
@@ -74,7 +74,7 @@ namespace regression {
                                                          const Eigen::VectorXd& theta, double lambda = 0.0) {
             Eigen::Index m = X.rows();
             Eigen::VectorXd h = sigmoid_vec(X * theta);
-            Eigen::VectorXd gradient = (X.transpose() * (h - y)) / static_cast<double>(m);
+            Eigen::VectorXd gradient = (X.transpose() * (h - y)) / m;
                                                         
             if (lambda > 0) {
                 Eigen::VectorXd reg = (lambda / static_cast<double>(m)) * theta;
@@ -92,10 +92,10 @@ namespace regression {
             if (X.rows() == 0) return;
 
             mean = X.colwise().mean();
-            std = ((X.rowwise() - mean.transpose()).array().square().colwise().sum() / static_cast<double>(X.rows())).sqrt();
+            std = ((X.rowwise() - mean.transpose()).array().square().colwise().sum() / X.rows()).sqrt();
 
-            // Gestione feature costanti (Uso Eigen::Index per coerenza)
-            for (Eigen::Index i = 0; i < std.size(); ++i) {
+            // Gestione feature costanti
+            for (int i = 0; i < std.size(); ++i) {
                 if (std(i) < 1e-9) std(i) = 1.0;
             }
 
@@ -108,33 +108,29 @@ namespace regression {
         static std::vector<std::pair<Eigen::MatrixXd, Eigen::VectorXd>> train_test_split(
             const Eigen::MatrixXd& X, const Eigen::VectorXd& y, double test_size = 0.2, int random_state = 42) {
             
+            std::srand(static_cast<unsigned int>(random_state));
             Eigen::Index n_samples = X.rows();
-            auto n_test = static_cast<Eigen::Index>(static_cast<double>(n_samples) * test_size);
-            Eigen::Index n_train = n_samples - n_test;
+            auto n_test = static_cast<int>(static_cast<double>(n_samples) * test_size);
             
-            // Usiamo size_t per indici di std::vector per evitare warning di sign-conversion
-            std::vector<size_t> indices(static_cast<size_t>(n_samples));
+            std::vector<int> indices(static_cast<typename std::vector<int>::size_type>(n_samples));
             std::iota(indices.begin(), indices.end(), 0);
-            
-            // Per riproducibilità usiamo random_state se fornito
-            std::mt19937 g(static_cast<unsigned int>(random_state));
+            std::random_device rd;
+            std::mt19937 g(rd());
             std::shuffle(indices.begin(), indices.end(), g);
             
-            Eigen::MatrixXd X_train(n_train, X.cols());
-            Eigen::VectorXd y_train(n_train);
+            Eigen::MatrixXd X_train(n_samples - n_test, X.cols());
+            Eigen::VectorXd y_train(n_samples - n_test);
             Eigen::MatrixXd X_test(n_test, X.cols());
             Eigen::VectorXd y_test(n_test);
             
-            for (Eigen::Index i = 0; i < n_train; ++i) {
-                // Cast esplicito a size_t per accedere al vector senza warning
-                X_train.row(i) = X.row(static_cast<Eigen::Index>(indices[static_cast<size_t>(i)]));
-                y_train(i) = y(static_cast<Eigen::Index>(indices[static_cast<size_t>(i)]));
+            for (int i = 0; i < n_samples - n_test; ++i) {
+                X_train.row(i) = X.row(indices[i]);
+                y_train(i) = y(indices[i]);
             }
 
-            for (Eigen::Index i = 0; i < n_test; ++i) {
-                size_t idx = static_cast<size_t>(n_train + i);
-                X_test.row(i) = X.row(static_cast<Eigen::Index>(indices[idx]));
-                y_test(i) = y(static_cast<Eigen::Index>(indices[idx]));
+            for (int i = 0; i < n_test; ++i) {
+                X_test.row(i) = X.row(indices[n_samples - n_test + i]);
+                y_test(i) = y(indices[n_samples - n_test + i]);
             }
 
             return {{X_train, y_train}, {X_test, y_test}};

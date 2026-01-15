@@ -110,6 +110,7 @@ endforeach()
 
 # Trova Python3 (necessario per pybind11)
 find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+include_directories(${Python3_INCLUDE_DIRS})
 message(STATUS "Python3 found: ${Python3_EXECUTABLE}")
 message(STATUS "Python3 include dirs: ${Python3_INCLUDE_DIRS}")
 message(STATUS "Python3 libraries: ${Python3_LIBRARIES}")
