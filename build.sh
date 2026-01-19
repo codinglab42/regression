@@ -1,174 +1,85 @@
 #!/bin/bash
-# build_all.sh - Script di build per regression library
+# build.sh - Script ottimizzato per Modern CMake + Pyenv
 
-set -e  # Exit on error
-set -o pipefail  # Capture pipe errors
+set -e  
+set -o pipefail 
 
-echo "=========================================="
-echo "BUILD REGRESSION LIBRARY + PYTHON BINDINGS"
-echo "=========================================="
-
-# Colors for output
+# Colori per output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m' 
 
-# Directory progetto
-PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-echo -e "${BLUE}Project directory:${NC} $PROJECT_ROOT"
+echo -e "${BLUE}==========================================${NC}"
+echo -e "${BLUE}   BUILD REGRESSION LIBRARY (PYENV)       ${NC}"
+echo -e "${BLUE}==========================================${NC}"
 
-# Check requirements
-echo -e "\n${BLUE}1. CHECKING REQUIREMENTS...${NC}"
+# 1. RILEVAMENTO AMBIENTE (PYENV)
+PYTHON_EXE=$(which python)
+PYTHON_VER=$($PYTHON_EXE --version)
 
-check_command() {
-    if ! command -v "$1" &> /dev/null; then
-        echo -e "${RED}✗ $1 not found${NC}"
-        return 1
-    else
-        echo -e "${GREEN}✓ $1 found${NC} ($($1 --version | head -n1))"
-        return 0
-    fi
-}
+echo -e "${YELLOW}Using Python:${NC} $PYTHON_EXE ($PYTHON_VER)"
 
-# Essential commands
-check_command cmake || exit 1
-check_command make || exit 1
-check_command g++ || check_command clang++ || { echo -e "${RED}✗ No C++ compiler found${NC}"; exit 1; }
-
-# Python and pybind11 check (optional)
-if python3 -c "import pybind11" 2>/dev/null; then
-    echo -e "${GREEN}✓ pybind11 found in Python${NC}"
-    PYTHON_BINDINGS="ON"
-else
-    echo -e "${YELLOW}⚠ pybind11 not found in Python${NC}"
-    PYTHON_BINDINGS="OFF"
-fi
-
-# Clean previous builds
-echo -e "\n${BLUE}2. CLEANING...${NC}"
-read -p "Do you want to clean previous builds? (y/N): " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    echo "Removing build directories..."
-    rm -rf "$PROJECT_ROOT/build" "$PROJECT_ROOT/output" "$PROJECT_ROOT/lib"
-fi
-
-# Create directories
-mkdir -p "$PROJECT_ROOT/build"
-mkdir -p "$PROJECT_ROOT/output"
-
-# Configure CMake
-echo -e "\n${BLUE}3. CONFIGURING CMAKE...${NC}"
-cd "$PROJECT_ROOT/build"
-
-# Detect number of CPU cores
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    NPROC=$(sysctl -n hw.ncpu)
-else
-    NPROC=$(nproc)
-fi
-
-# Build options
-BUILD_OPTS=(
-    "-DCMAKE_BUILD_TYPE=Release"
-    "-DBUILD_PYTHON_BINDINGS=${PYTHON_BINDINGS}"
-    "-DBUILD_TESTS=ON"
-    "-DBUILD_EXAMPLES=ON"
-    "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
-)
-
-# Configure
-echo -e "${YELLOW}CMake options:${NC} ${BUILD_OPTS[*]}"
-cmake .. "${BUILD_OPTS[@]}"
-
-# Compile
-echo -e "\n${BLUE}4. COMPILING...${NC}"
-echo -e "${YELLOW}Using $NPROC parallel jobs${NC}"
-make -j$NPROC VERBOSE=1
-
-# Run tests
-echo -e "\n${BLUE}5. RUNNING TESTS...${NC}"
-if [[ -f "$PROJECT_ROOT/build/CTestTestfile.cmake" ]]; then
-    cd "$PROJECT_ROOT/build"
-    if ctest --output-on-failure; then
-        echo -e "${GREEN}✓ All tests passed${NC}"
-    else
-        echo -e "${RED}✗ Some tests failed${NC}"
-    fi
-else
-    echo -e "${YELLOW}⚠ No tests found${NC}"
-fi
-
-# Check generated files
-echo -e "\n${BLUE}6. CHECKING GENERATED FILES...${NC}"
-
-print_files() {
-    local dir="$1"
-    local pattern="$2"
-    local description="$3"
-    
-    if [[ -d "$dir" ]]; then
-        echo -e "\n${YELLOW}$description:${NC}"
-        find "$dir" -name "$pattern" -type f | while read -r file; do
-            size=$(ls -lh "$file" | awk '{print $5}')
-            echo -e "  ${GREEN}✓${NC} $(basename "$file") ($size)"
-        done
-    fi
-}
-
-# Check libraries
-print_files "$PROJECT_ROOT/build" "*.a" "Static libraries (.a)"
-print_files "$PROJECT_ROOT/build" "*.so" "Shared libraries (.so)"
-
-# Check Python module if built
-if [[ "$PYTHON_BINDINGS" == "ON" ]]; then
-    echo -e "\n${YELLOW}Python module check:${NC}"
-    PY_MODULE=$(find "$PROJECT_ROOT/build" -name "regression*.so" -type f | head -1)
-    if [[ -n "$PY_MODULE" ]]; then
-        echo -e "  ${GREEN}✓ Python module found:${NC} $(basename "$PY_MODULE")"
-        
-        # Try to import
-        echo -e "  ${YELLOW}Testing import...${NC}"
-        if python3 -c "import sys; sys.path.insert(0, '$(dirname "$PY_MODULE")'); import regression; print('    Import successful: ' + str(regression.__version__))" 2>/dev/null; then
-            echo -e "  ${GREEN}✓ Python module imports correctly${NC}"
-        else
-            echo -e "  ${RED}✗ Python module import failed${NC}"
-        fi
-    else
-        echo -e "  ${RED}✗ No Python module found${NC}"
-    fi
-fi
-
-# Check executables
-echo -e "\n${YELLOW}Executables:${NC}"
-find "$PROJECT_ROOT/build" -type f -executable ! -name "*.so" ! -name "*.dylib" ! -name "*.dll" | while read -r exe; do
-    echo -e "  ${GREEN}✓${NC} $(basename "$exe")"
+# 2. ARGOMENTI
+CLEAN_BUILD="OFF"
+for arg in "$@"; do
+    [[ "$arg" == "--clean" ]] && CLEAN_BUILD="ON"
 done
 
-# Generate compile_commands.json symlink for tools
-echo -e "\n${BLUE}7. SETTING UP DEVELOPMENT TOOLS...${NC}"
-if [[ -f "$PROJECT_ROOT/build/compile_commands.json" ]]; then
-    ln -sf "$PROJECT_ROOT/build/compile_commands.json" "$PROJECT_ROOT/compile_commands.json" 2>/dev/null || true
-    echo -e "${GREEN}✓ Created compile_commands.json symlink${NC}"
+# 3. PULIZIA
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ "$CLEAN_BUILD" == "ON" ]]; then
+    echo -e "${YELLOW}Pulizia directory build...${NC}"
+    rm -rf "$PROJECT_ROOT/build"
 fi
 
-# Summary
+mkdir -p "$PROJECT_ROOT/build"
+cd "$PROJECT_ROOT/build"
+
+# 4. CONFIGURAZIONE CMAKE
+# Passiamo esplicitamente l'eseguibile di pyenv a CMake
+echo -e "\n${BLUE}CONFIGURAZIONE CMAKE...${NC}"
+cmake .. \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DPython3_EXECUTABLE="$PYTHON_EXE" \
+    -DBUILD_PYTHON_BINDINGS=ON \
+    -DBUILD_TESTS=ON \
+    -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+# 5. COMPILAZIONE
+echo -e "\n${BLUE}COMPILAZIONE IN CORSO...${NC}"
+NPROC=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 1)
+make -j$NPROC
+
+# 6. VERIFICA RISULTATI
+echo -e "\n${BLUE}CHECK GENERATED FILES...${NC}"
+
+# Controlla librerie core
+if ls lib/libregression* 1> /dev/null 2>&1; then
+    echo -e "${GREEN}✓ Librerie generate in build/lib:${NC}"
+    ls -h lib/libregression*
+else
+    echo -e "${RED}✗ Errore: Librerie core non trovate!${NC}"
+fi
+
+# Controlla modulo python
+echo -e "\n${YELLOW}Esecuzione test import Python...${NC}"
+$PYTHON_EXE "$PROJECT_ROOT/tests/test_python_import.py"
+
+# PY_MOD=$(find . -name "regression_module*.so")
+# if [[ -n "$PY_MOD" ]]; then
+#     echo -e "${GREEN}✓ Modulo Python generato:${NC} $PY_MOD"
+#     # Test rapido di import
+#     echo -n "Test import modulo... "
+#     if $PYTHON_EXE -c "import sys; sys.path.insert(0, '$(dirname "$PY_MOD")'); import regression_module; print('OK')" 2>/dev/null; then
+#         echo -e "${GREEN}SUCCESS${NC}"
+#     else
+#         echo -e "${RED}FAILED${NC} (Verifica i binding in C++)"
+#     fi
+# fi
+
 echo -e "\n${BLUE}==========================================${NC}"
-echo -e "${GREEN}BUILD COMPLETED SUCCESSFULLY!${NC}"
+echo -e "${GREEN}BUILD COMPLETATA!${NC}"
+echo -e "Esegui i test con: ${YELLOW}cd build && ctest${NC}"
 echo -e "${BLUE}==========================================${NC}"
-echo -e "\n${YELLOW}Output directories:${NC}"
-echo -e "  Build artifacts: ${PROJECT_ROOT}/build/"
-echo -e "  Libraries: ${PROJECT_ROOT}/output/"
-echo -e "\n${YELLOW}Next steps:${NC}"
-echo -e "  Run examples: cd ${PROJECT_ROOT}/build/examples && ./example_usage"
-echo -e "  Test Python: python3 -c \"import sys; sys.path.insert(0, '${PROJECT_ROOT}/build'); import regression\""
-
-if [[ "$PYTHON_BINDINGS" == "ON" ]]; then
-    echo -e "\n${YELLOW}Python installation (optional):${NC}"
-    echo "  # Install to user site-packages"
-    echo "  pip install --user ${PROJECT_ROOT}/build/pybinding/"
-fi
-
-echo -e "\n${BLUE}==========================================${NC}"

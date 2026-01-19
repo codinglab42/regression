@@ -1,24 +1,37 @@
-#!/usr/bin/env python3
-"""
-Test script for Python bindings of regression library.
-"""
-
 import sys
-import os
+from pathlib import Path
 import numpy as np
 
-# Add the build directory to Python path
-build_dir = "@CMAKE_LIBRARY_OUTPUT_DIRECTORY@"
-sys.path.insert(0, build_dir)
-
-print(f"Testing from directory: {build_dir}")
-print(f"Python version: {sys.version}")
+# Configurazione percorsi
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root / "build" / "python_module"))
+sys.path.insert(0, str(project_root / "build" / "lib"))
 
 try:
-    import regression
-    print("✓ Successfully imported regression module")
-    print(f"  Module version: {getattr(regression, '__version__', 'N/A')}")
+    import regression_module as regression
+    print("✓ Import riuscito")
+
+    # DATI DI TEST (y = 2x + 1)
+    X = np.array([[1], [2], [3], [4]], dtype=np.float64)
+    y = np.array([3, 5, 7, 9], dtype=np.float64)
+
+    # Inizializzazione modello
+    model = regression.LinearRegression(0.01, 1000, 0.0, regression.LinearSolver.GRADIENT_DESCENT)
     
+    print("Inizio training...")
+    model.fit(X, y)
+    
+    # Verifica risultati
+    coef = model.coefficients
+    intercept = model.intercept
+    print(f"Coefficienti: {coef.flatten()}")
+    print(f"Intercetta: {intercept}")
+
+    # Test predizione
+    test_X = np.array([[5]], dtype=np.float64)
+    pred = model.predict(test_X)
+    print(f"Predizione per x=5 (atteso ~11): {pred.flatten()}")
+   
     # Test Linear Regression
     print("\n" + "="*50)
     print("Testing Linear Regression...")
@@ -31,8 +44,8 @@ try:
     lr = regression.LinearRegression(learning_rate=0.01, max_iter=1000)
     lr.fit(X, y)
     
-    print(f"  Coefficients: {lr.coefficients()}")
-    print(f"  Intercept: {lr.intercept()}")
+    print(f"  Coefficients: {lr.coefficients}")
+    print(f"  Intercept: {lr.intercept}")
     print(f"  R2 Score: {lr.score(X, y):.6f}")
     
     # Test prediction
@@ -50,7 +63,7 @@ try:
     logr = regression.LogisticRegression(learning_rate=0.1, max_iter=1000)
     logr.fit(X_log, y_log)
     
-    print(f"  Coefficients: {logr.coefficients()}")
+    print(f"  Coefficients: {logr.coefficients}")
     print(f"  Accuracy: {logr.score(X_log, y_log):.6f}")
     
     # Test prediction
@@ -60,9 +73,9 @@ try:
     
     print("\n" + "="*50)
     print("✓ All Python binding tests passed!")
-    
+
 except Exception as e:
-    print(f"\n✗ Error during testing: {e}")
+    print(f"✗ Errore durante il test: {e}")
     import traceback
     traceback.print_exc()
     sys.exit(1)

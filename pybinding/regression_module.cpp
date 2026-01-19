@@ -17,7 +17,7 @@ py::enum_<T> bind_enum(py::module &m, const std::string &name) {
     return enum_type;
 }
 
-PYBIND11_MODULE(regression, m) {
+PYBIND11_MODULE(regression_module, m) {
     m.doc() = R"pbdoc(
         Regression Library Python Bindings
         ==================================
@@ -64,6 +64,8 @@ PYBIND11_MODULE(regression, m) {
                .value("SVD", regression::LinearRegression::Solver::SVD)
                .export_values();
     
+     py::class_<regression::Estimator>(m, "Estimator");
+
     // Bind LinearRegression class
     py::class_<regression::LinearRegression, regression::Estimator>(m, "LinearRegression")
         .def(py::init<>())
@@ -213,8 +215,8 @@ PYBIND11_MODULE(regression, m) {
     });
     
     // Register Eigen matrix converters
-    py::implicitly_convertible<py::array, Eigen::MatrixXd>();
-    py::implicitly_convertible<py::array, Eigen::VectorXd>();
+    //py::implicitly_convertible<py::array, Eigen::MatrixXd>();
+    //py::implicitly_convertible<py::array, Eigen::VectorXd>();
     
     // Add some numpy type converters
     m.def("as_matrix", [](py::array_t<double> arr) {
