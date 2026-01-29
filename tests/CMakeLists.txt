@@ -1,38 +1,33 @@
-# =========================================================
-# TESTS/CMAKELISTS.TXT - Test indipendenti
-# =========================================================
+# ============================================================================
+# TEST C++
+# ============================================================================
+message(STATUS "🧪 Configuring C++ tests...")
 
-# 1. Trova o scarica GoogleTest
-find_package(GTest CONFIG QUIET)
-if(NOT GTest_FOUND)
-    include(FetchContent)
-    FetchContent_Declare(
-      googletest
-      URL https://github.com/google/googletest/archive/refs/heads/main.zip
-    )
-    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-    FetchContent_MakeAvailable(googletest)
-endif()
+# Test per Linear Regression
+add_executable(test_linear test_linear.cpp)
+target_link_libraries(test_linear ml_library)
+add_test(NAME test_linear COMMAND test_linear)
 
-# 2. Lista dei file di test (ognuno con il suo 'main')
-set(TEST_FILES
-    test_linear
-    test_logistic
-    test_regression
-)
+# Test per Logistic Regression
+add_executable(test_logistic test_logistic.cpp)
+target_link_libraries(test_logistic ml_library)
+add_test(NAME test_logistic COMMAND test_logistic)
 
-# 3. Crea un eseguibile per ogni file di test
-foreach(test_name ${TEST_FILES})
-    add_executable(${test_name} ${test_name}.cpp)
-    
-    # Link alla libreria statica e a GTest
-    target_link_libraries(${test_name} 
-        PRIVATE 
-            regression_static 
-            GTest::gtest_main
-            Eigen3::Eigen
-    )
-    
-    # Registra il test per 'ctest'
-    add_test(NAME ${test_name} COMMAND ${test_name})
-endforeach()
+# Test per Neural Network
+add_executable(test_neural test_neural.cpp)
+target_link_libraries(test_neural ml_library)
+add_test(NAME test_neural COMMAND test_neural)
+
+# Test completo
+add_executable(test_all test_regression.cpp)
+target_link_libraries(test_all ml_library)
+add_test(NAME test_all COMMAND test_all)
+
+message(STATUS "✅ C++ tests configured")
+message(STATUS "  Available tests:")
+message(STATUS "    - test_linear: Linear Regression")
+message(STATUS "    - test_logistic: Logistic Regression")
+message(STATUS "    - test_neural: Neural Network")
+message(STATUS "    - test_all: Complete test")
+message(STATUS "")
+message(STATUS "  Run tests with: ctest --output-on-failure")

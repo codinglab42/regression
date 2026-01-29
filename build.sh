@@ -67,7 +67,102 @@ fi
 echo -e "\n${YELLOW}Esecuzione test import Python...${NC}"
 $PYTHON_EXE "$PROJECT_ROOT/tests/test_python_import.py"
 
-# PY_MOD=$(find . -name "regression_module*.so")
+#!/bin/bash
+# build.sh - Script per build automatica
+
+set -e
+
+echo "🧱 ML Library Build Script"
+echo "=========================="
+
+# Configurazione
+BUILD_DIR="build"
+INSTALL_DIR="${INSTALL_DIR:-${HOME}/.local}"
+PYTHON_TEST=true
+CLEAN_BUILD=false
+
+# Parse argomenti
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --clean)
+            CLEAN_BUILD=true
+            shift
+            ;;
+        --no-python)
+            PYTHON_TEST=false
+            shift
+            ;;
+        --install-dir=*)
+            INSTALL_DIR="${1#*=}"
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Usage: $0 [--clean] [--no-python] [--install-dir=/path]"
+            exit 1
+            ;;
+    esac
+done
+
+# Clean build se richiesto
+if [ "$CLEAN_BUILD" = true ] && [ -d "$BUILD_DIR" ]; then
+    echo "🧹 Cleaning build directory..."
+    rm -rf "$BUILD_DIR"
+fi
+
+# Crea directory build
+mkdir -p "$BUILD_DIR"
+cd "$BUILD_DIR"
+
+# Configura CMake
+echo "🔧 Configuring with CMake..."
+cmake .. \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DBUILD_PYTHON_BINDINGS=ON \
+    -DBUILD_TESTS=ON \
+    -DVERBOSE_OUTPUT=ON \
+    -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR"
+
+# Build
+echo "🏗️  Building..."
+make -j$(nproc)
+
+# Test C++
+echo "🧪 Running C++ tests..."
+if ctest --output-on-failure; then
+    echo "✅ C++ tests passed"
+else
+    echo "❌ C++ tests failed"
+    exit 1
+fi
+
+# Test Python
+if [ "$PYTHON_TEST" = true ]; then
+    echo "🐍 Testing Python module..."
+    if make test_python_module; then
+        echo "✅ Python module test passed"
+    else
+        echo "❌ Python module test failed"
+        exit 1
+    fi
+fi
+
+# Install
+echo "📦 Installing to ${INSTALL_DIR}..."
+make install
+
+echo ""
+echo "🎉 Build completed successfully!"
+echo ""
+echo "Quick test:"
+echo "  python3 -c \""
+echo "  import sys"
+echo "  sys.path.insert(0, '${INSTALL_DIR}/lib/python*/site-packages')"
+echo "  import regression_module as ml"
+echo "  print('ML Library:', ml.__version__)"
+echo "  \""
+echo ""
+echo "Library installed in: ${INSTALL_DIR}"# PY_MOD=$(find . -name "regression_module*.so")
 # if [[ -n "$PY_MOD" ]]; then
 #     echo -e "${GREEN}✓ Modulo Python generato:${NC} $PY_MOD"
 #     # Test rapido di import

@@ -1,0 +1,27 @@
+# ============================================================================
+# ESEMPI
+# ============================================================================
+message(STATUS "📚 Configuring examples...")
+
+# Esempio 1: Regressione Lineare
+add_executable(example_linear linear_regression_example.cpp)
+target_link_libraries(example_linear ml_library)
+
+# Esempio 2: Regressione Logistica
+add_executable(example_logistic logistic_regression_example.cpp)
+target_link_libraries(example_logistic ml_library)
+
+# Esempio 3: Neural Network
+add_executable(example_nn neural_network_example.cpp)
+target_link_libraries(example_nn ml_library)
+
+# Esempio 4: Tutto insieme
+add_executable(example_all complete_example.cpp)
+target_link_libraries(example_all ml_library)
+
+message(STATUS "✅ Examples configured")
+message(STATUS "  Available examples:")
+message(STATUS "    - example_linear: Linear Regression")
+message(STATUS "    - example_logistic: Logistic Regression")
+message(STATUS "    - example_nn: Neural Network")
+message(STATUS "    - example_all: Complete example")

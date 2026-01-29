@@ -1,0 +1,127 @@
+[0;34m==========================================[0m
+[0;34m   BUILD REGRESSION LIBRARY (PYENV)       [0m
+[0;34m==========================================[0m
+[1;33mUsing Python:[0m /home/devel/.pyenv/shims/python (Python 3.11.14)
+
+[0;34mCONFIGURAZIONE CMAKE...[0m
+-- ========================================
+-- 🔍 Ricerca dipendenze...
+-- ✅ Python trovato: /home/devel/.pyenv/shims/python
+--    Version: 3.11.14
+--    Pyenv: /home/devel/.pyenv
+-- ✅ Eigen3 trovato: 
+-- 📦 pybind11 non trovato, scaricando...
+-- pybind11 v2.13.1 
+-- ✅ pybind11: 
+-- ========================================
+-- 🏗️  Configurazione sottodirectory...
+-- 📦 Configuring ML Library sources...
+--   Total source files: 7
+--   Default: Static library (.a/.lib)
+-- ✅ ML Library sources configured
+--   Available targets:
+--     - ml_library_static (static)
+--     - ml_library_shared (shared)
+--     - ml_library (alias, uses BUILD_SHARED_LIBS)
+--     - ML::Library (recommended alias)
+-- 🐍 Building Python bindings...
+-- 🐍 Configuring Python bindings...
+-- 📁 Installing to pyenv site-packages: /home/devel/.pyenv/versions/ai-devel/lib/python3.11/site-packages
+-- ✅ Python bindings configured
+--   Module: regression_module
+--   Test: make test_python_module
+-- 🧪 Building tests...
+-- 🧪 Configuring C++ tests...
+-- ✅ C++ tests configured
+--   Available tests:
+--     - test_linear: Linear Regression
+--     - test_logistic: Logistic Regression
+--     - test_neural: Neural Network
+--     - test_all: Complete test
+-- 
+--   Run tests with: ctest --output-on-failure
+-- 
+-- ========================================
+-- ✅ Configuration Complete
+-- ========================================
+-- Project:      ML Library v2.0.0
+-- Build type:   Release
+-- 
+-- Features:
+--   Python bindings: ON
+--   Tests:           ON
+--   Examples:        OFF
+--   OpenMP:          OFF
+--   Shared libs:     OFF
+-- 
+-- Dependencies:
+--   Python:          3.11.14
+--   Eigen3:          
+--   pybind11:        
+-- 
+-- Next commands:
+--   make -j$(nproc)
+--   make test_python_module
+--   ctest --output-on-failure
+--   make install
+-- ========================================
+-- Configuring done (1.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: /home/devel/ai-lab/projects/ai-devel/machineLearning/regression/build
+
+[0;34mCOMPILAZIONE IN CORSO...[0m
+[  3%] Building CXX object src/CMakeFiles/ml_library_static.dir/linear_regression.cpp.o
+In file included from /home/devel/ai-lab/projects/ai-devel/machineLearning/regression/include/serialization/serializable.h:9,
+                 from /home/devel/ai-lab/projects/ai-devel/machineLearning/regression/include/regression/estimator.h:6,
+                 from /home/devel/ai-lab/projects/ai-devel/machineLearning/regression/include/regression/linear_regression.h:4,
+                 from /home/devel/ai-lab/projects/ai-devel/machineLearning/regression/src/linear_regression.cpp:1:
+/home/devel/ai-lab/projects/ai-devel/machineLearning/regression/include/exceptions/io_exception.h: In constructor ‘ml_exception::SerializationException::SerializationException(const std::string&, const std::string&, const std::string&)’:
+/home/devel/ai-lab/projects/ai-devel/machineLearning/regression/include/exceptions/io_exception.h:34:15: error: type ‘ml_exception::MLException’ is not a direct base of ‘ml_exception::SerializationException’
+   34 |             : MLException(build_message(filename, error_detail), model_type) {}
+      |               ^~~~~~~~~~~
+/home/devel/ai-lab/projects/ai-devel/machineLearning/regression/include/exceptions/io_exception.h:34:76: error: no matching function for call to ‘ml_exception::IOException::IOException()’
+   34 |             : MLException(build_message(filename, error_detail), model_type) {}
+      |                                                                            ^
+/home/devel/ai-lab/projects/ai-devel/machineLearning/regression/include/exceptions/io_exception.h:10:9: note: candidate: ‘ml_exception::IOException::IOException(const std::string&, const std::string&, const std::string&)’
+   10 |         IOException(const std::string& filename, const std::string& operation,
+      |         ^~~~~~~~~~~
+/home/devel/ai-lab/projects/ai-devel/machineLearning/regression/include/exceptions/io_exception.h:10:9: note:   candidate expects 3 arguments, 0 provided
+/home/devel/ai-lab/projects/ai-devel/machineLearning/regression/include/exceptions/io_exception.h:8:11: note: candidate: ‘ml_exception::IOException::IOException(const ml_exception::IOException&)’
+    8 |     class IOException : public MLException {
+      |           ^~~~~~~~~~~
+/home/devel/ai-lab/projects/ai-devel/machineLearning/regression/include/exceptions/io_exception.h:8:11: note:   candidate expects 1 argument, 0 provided
+/home/devel/ai-lab/projects/ai-devel/machineLearning/regression/include/exceptions/io_exception.h:8:11: note: candidate: ‘ml_exception::IOException::IOException(ml_exception::IOException&&)’
+/home/devel/ai-lab/projects/ai-devel/machineLearning/regression/include/exceptions/io_exception.h:8:11: note:   candidate expects 1 argument, 0 provided
+/home/devel/ai-lab/projects/ai-devel/machineLearning/regression/include/exceptions/io_exception.h: In constructor ‘ml_exception::DeserializationException::DeserializationException(const std::string&, const std::string&, const std::string&)’:
+/home/devel/ai-lab/projects/ai-devel/machineLearning/regression/include/exceptions/io_exception.h:49:15: error: type ‘ml_exception::MLException’ is not a direct base of ‘ml_exception::DeserializationException’
+   49 |             : MLException(build_message(filename, error_detail), model_type) {}
+      |               ^~~~~~~~~~~
+/home/devel/ai-lab/projects/ai-devel/machineLearning/regression/include/exceptions/io_exception.h:49:76: error: no matching function for call to ‘ml_exception::IOException::IOException()’
+   49 |             : MLException(build_message(filename, error_detail), model_type) {}
+      |                                                                            ^
+/home/devel/ai-lab/projects/ai-devel/machineLearning/regression/include/exceptions/io_exception.h:10:9: note: candidate: ‘ml_exception::IOException::IOException(const std::string&, const std::string&, const std::string&)’
+   10 |         IOException(const std::string& filename, const std::string& operation,
+      |         ^~~~~~~~~~~
+/home/devel/ai-lab/projects/ai-devel/machineLearning/regression/include/exceptions/io_exception.h:10:9: note:   candidate expects 3 arguments, 0 provided
+/home/devel/ai-lab/projects/ai-devel/machineLearning/regression/include/exceptions/io_exception.h:8:11: note: candidate: ‘ml_exception::IOException::IOException(const ml_exception::IOException&)’
+    8 |     class IOException : public MLException {
+      |           ^~~~~~~~~~~
+/home/devel/ai-lab/projects/ai-devel/machineLearning/regression/include/exceptions/io_exception.h:8:11: note:   candidate expects 1 argument, 0 provided
+/home/devel/ai-lab/projects/ai-devel/machineLearning/regression/include/exceptions/io_exception.h:8:11: note: candidate: ‘ml_exception::IOException::IOException(ml_exception::IOException&&)’
+/home/devel/ai-lab/projects/ai-devel/machineLearning/regression/include/exceptions/io_exception.h:8:11: note:   candidate expects 1 argument, 0 provided
+/home/devel/ai-lab/projects/ai-devel/machineLearning/regression/include/serialization/serializable.h: In instantiation of ‘static void serialization::BinarySerializer<Model>::save(const Model&, const std::string&) [with Model = serialization::SerializableModel; std::string = std::__cxx11::basic_string<char>]’:
+/home/devel/ai-lab/projects/ai-devel/machineLearning/regression/include/serialization/serializable.h:176:66:   required from here
+  176 |             BinarySerializer<std::decay_t<decltype(*this)>>::save(*this, filename);
+      |             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~
+/home/devel/ai-lab/projects/ai-devel/machineLearning/regression/include/serialization/serializable.h:38:34: error: ‘ML_THROW_IO_ERROR’ was not declared in this scope
+   38 |                 ML_THROW_IO_ERROR(filename, "open for writing", model.get_model_type());
+      |                 ~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/devel/ai-lab/projects/ai-devel/machineLearning/regression/include/serialization/serializable.h:38:34: note: the macro ‘ML_THROW_IO_ERROR’ had not yet been defined
+In file included from /home/devel/ai-lab/projects/ai-devel/machineLearning/regression/include/regression/math_utils.h:11,
+                 from /home/devel/ai-lab/projects/ai-devel/machineLearning/regression/include/regression/linear_regression.h:5:
+/home/devel/ai-lab/projects/ai-devel/machineLearning/regression/include/exceptions/exception_macros.h:46:9: note: it was later defined here
+   46 | #define ML_THROW_IO_ERROR(filename, operation, model_type) \
+      |         ^~~~~~~~~~~~~~~~~
+make[2]: *** [src/CMakeFiles/ml_library_static.dir/build.make:76: src/CMakeFiles/ml_library_static.dir/linear_regression.cpp.o] Error 1
+make[1]: *** [CMakeFiles/Makefile2:161: src/CMakeFiles/ml_library_static.dir/all] Error 2
+make: *** [Makefile:146: all] Error 2
