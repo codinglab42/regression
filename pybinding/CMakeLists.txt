@@ -4,25 +4,25 @@
 message(STATUS "🐍 Configuring Python bindings...")
 
 # Crea modulo Python
-pybind11_add_module(regression_module
-    regression_module.cpp
+pybind11_add_module(machine_learning_module
+    machine_learning_module.cpp
 )
 
 # Link con la libreria principale
-target_link_libraries(regression_module PRIVATE ml_library)
+target_link_libraries(machine_learning_module PRIVATE ml_library)
 
 # Include directories
-target_include_directories(regression_module PRIVATE
+target_include_directories(machine_learning_module PRIVATE
     ${CMAKE_SOURCE_DIR}/include
     ${Eigen3_INCLUDE_DIRS}
 )
 
 # Proprietà del modulo
-set_target_properties(regression_module PROPERTIES
+set_target_properties(machine_learning_module PROPERTIES
     CXX_VISIBILITY_PRESET "hidden"
     VISIBILITY_INLINES_HIDDEN ON
     PREFIX ""
-    OUTPUT_NAME "regression_module"
+    OUTPUT_NAME "machine_learning_module"
 )
 
 # ============================================================================
@@ -45,22 +45,22 @@ else:
     
     if(PYTHON_SITE_PACKAGES)
         message(STATUS "📁 Installing to pyenv site-packages: ${PYTHON_SITE_PACKAGES}")
-        install(TARGETS regression_module DESTINATION ${PYTHON_SITE_PACKAGES})
+        install(TARGETS machine_learning_module DESTINATION ${PYTHON_SITE_PACKAGES})
         
         # Symlink per testing
-        add_custom_command(TARGET regression_module POST_BUILD
+        add_custom_command(TARGET machine_learning_module POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E create_symlink
-            $<TARGET_FILE:regression_module>
-            ${CMAKE_BINARY_DIR}/regression_module$<TARGET_FILE_NAME:regression_module>
+            $<TARGET_FILE:machine_learning_module>
+            ${CMAKE_BINARY_DIR}/machine_learning_module$<TARGET_FILE_NAME:machine_learning_module>
             COMMENT "Creating symlink for testing"
         )
     else()
         message(WARNING "⚠️  Could not determine pyenv site-packages")
-        install(TARGETS regression_module DESTINATION ${CMAKE_INSTALL_PREFIX}/python)
+        install(TARGETS machine_learning_module DESTINATION ${CMAKE_INSTALL_PREFIX}/python)
     endif()
 else()
     # Installazione normale
-    install(TARGETS regression_module DESTINATION ${CMAKE_INSTALL_PREFIX}/python)
+    install(TARGETS machine_learning_module DESTINATION ${CMAKE_INSTALL_PREFIX}/python)
 endif()
 
 # ============================================================================
@@ -102,11 +102,11 @@ except Exception as e:
     traceback.print_exc()
     sys.exit(1)
 "
-    DEPENDS regression_module
+    DEPENDS machine_learning_module
     COMMENT "Testing Python module import"
     VERBATIM
 )
 
 message(STATUS "✅ Python bindings configured")
-message(STATUS "  Module: regression_module")
+message(STATUS "  Module: machine_learning_module")
 message(STATUS "  Test: make test_python_module")

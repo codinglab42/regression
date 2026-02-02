@@ -37,7 +37,7 @@ void translate_exception(const std::exception& e) {
     }
 }
 
-PYBIND11_MODULE(regression_module, m) {
+PYBIND11_MODULE(machine_learning_module, m) {
     m.doc() = R"pbdoc(
         Machine Learning Library Python Bindings
         =========================================
@@ -55,7 +55,7 @@ PYBIND11_MODULE(regression_module, m) {
         Examples
         --------
         >>> import numpy as np
-        >>> import regression_module as ml
+        >>> import machine_learning_module as ml
         >>> 
         >>> # Linear Regression
         >>> X = np.random.rand(100, 3)

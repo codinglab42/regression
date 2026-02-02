@@ -17,9 +17,9 @@ print(f"Ricerca modulo in: {module_dir}")
 
 try:
     # Usa il nome definito nel tuo PYBIND11_MODULE
-    import regression_module as regression
+    import machine_learning_module as ml
     print("✓ Test Import Python: SUCCESS")
-    print(f"✓ Percorso file: {regression.__file__}")
+    print(f"✓ Percorso file: {ml.__file__}")
 except ImportError as e:
     print(f"✗ Test Import Python: FAILED")
     print(f"  Errore: {e}")

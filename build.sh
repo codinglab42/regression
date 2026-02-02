@@ -158,16 +158,16 @@ echo "Quick test:"
 echo "  python3 -c \""
 echo "  import sys"
 echo "  sys.path.insert(0, '${INSTALL_DIR}/lib/python*/site-packages')"
-echo "  import regression_module as ml"
+echo "  import machine_learning_module as ml"
 echo "  print('ML Library:', ml.__version__)"
 echo "  \""
 echo ""
-echo "Library installed in: ${INSTALL_DIR}"# PY_MOD=$(find . -name "regression_module*.so")
+echo "Library installed in: ${INSTALL_DIR}"# PY_MOD=$(find . -name "machine_learning_module*.so")
 # if [[ -n "$PY_MOD" ]]; then
 #     echo -e "${GREEN}✓ Modulo Python generato:${NC} $PY_MOD"
 #     # Test rapido di import
 #     echo -n "Test import modulo... "
-#     if $PYTHON_EXE -c "import sys; sys.path.insert(0, '$(dirname "$PY_MOD")'); import regression_module; print('OK')" 2>/dev/null; then
+#     if $PYTHON_EXE -c "import sys; sys.path.insert(0, '$(dirname "$PY_MOD")'); import machine_learning_module; print('OK')" 2>/dev/null; then
 #         echo -e "${GREEN}SUCCESS${NC}"
 #     else
 #         echo -e "${RED}FAILED${NC} (Verifica i binding in C++)"

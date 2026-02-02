@@ -8,7 +8,7 @@ sys.path.insert(0, str(project_root / "build" / "python_module"))
 sys.path.insert(0, str(project_root / "build" / "lib"))
 
 try:
-    import regression_module as regression
+    import machine_learning_module as ml
     print("✓ Import riuscito")
 
     # DATI DI TEST (y = 2x + 1)
@@ -16,7 +16,7 @@ try:
     y = np.array([3, 5, 7, 9], dtype=np.float64)
 
     # Inizializzazione modello
-    model = regression.LinearRegression(0.01, 1000, 0.0, regression.LinearSolver.GRADIENT_DESCENT)
+    model = ml.LinearRegression(0.01, 1000, 0.0, ml.LinearSolver.GRADIENT_DESCENT)
     
     print("Inizio training...")
     model.fit(X, y)
