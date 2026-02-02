@@ -1,5 +1,4 @@
 #include "layers/convolutional.h"
-#include "activation/activation.h"
 #include "serialization/serializable.h"
 #include <cmath>
 #include <random>
@@ -9,46 +8,50 @@
 using namespace Eigen;
 using namespace layers;
 
-// Costruttori
+// Costruttore per immagini 2D (input: [batch_size, input_channels * input_height * input_width])
 Convolutional::Convolutional(int input_channels, int output_channels,
                            int kernel_size, int stride, int padding,
                            const std::string& activation)
-    : input_channels_(input_channels), output_channels_(output_channels),
-      kernel_size_(kernel_size), stride_(stride), padding_(padding),
-      dilation_(1), groups_(1), input_height_(0), input_width_(0) {
+    : input_channels_(input_channels), input_height_(-1), input_width_(-1),
+      output_channels_(output_channels), kernel_size_(kernel_size),
+      stride_(stride), padding_(padding), dilation_(1), groups_(1) {
     
-    ML_CHECK_PARAM(input_channels > 0, "input_channels", "must be > 0", get_type());
-    ML_CHECK_PARAM(output_channels > 0, "output_channels", "must be > 0", get_type());
-    ML_CHECK_PARAM(kernel_size > 0, "kernel_size", "must be > 0", get_type());
-    ML_CHECK_PARAM(stride > 0, "stride", "must be > 0", get_type());
-    ML_CHECK_PARAM(padding >= 0, "padding", "must be >= 0", get_type());
+    ML_CHECK_PARAM(input_channels > 0, "input_channels", "must be > 0", "Convolutional");
+    ML_CHECK_PARAM(output_channels > 0, "output_channels", "must be > 0", "Convolutional");
+    ML_CHECK_PARAM(kernel_size > 0, "kernel_size", "must be > 0", "Convolutional");
+    ML_CHECK_PARAM(stride > 0, "stride", "must be > 0", "Convolutional");
+    ML_CHECK_PARAM(padding >= 0, "padding", "must be >= 0", "Convolutional");
     
+    // Inizializza pesi e bias
     initialize_kernels();
     initialize_biases();
     
+    // Funzione di attivazione
     activation_ = activation::create_activation(activation);
     if (!activation_) {
         throw ml_exception::InvalidParameterException(
-            "activation", "unknown activation function: " + activation, get_type());
+            "activation", "unknown activation function: " + activation, "Convolutional");
     }
     
     clear_cache();
 }
 
+// Costruttore per immagini 3D
 Convolutional::Convolutional(int input_channels, int input_height, int input_width,
                            int output_channels, int kernel_size,
-                           int stride, int padding, const std::string& activation)
+                           int stride, int padding,
+                           const std::string& activation)
     : input_channels_(input_channels), input_height_(input_height), input_width_(input_width),
       output_channels_(output_channels), kernel_size_(kernel_size),
       stride_(stride), padding_(padding), dilation_(1), groups_(1) {
     
-    ML_CHECK_PARAM(input_channels > 0, "input_channels", "must be > 0", get_type());
-    ML_CHECK_PARAM(input_height > 0, "input_height", "must be > 0", get_type());
-    ML_CHECK_PARAM(input_width > 0, "input_width", "must be > 0", get_type());
-    ML_CHECK_PARAM(output_channels > 0, "output_channels", "must be > 0", get_type());
-    ML_CHECK_PARAM(kernel_size > 0, "kernel_size", "must be > 0", get_type());
-    ML_CHECK_PARAM(stride > 0, "stride", "must be > 0", get_type());
-    ML_CHECK_PARAM(padding >= 0, "padding", "must be >= 0", get_type());
+    ML_CHECK_PARAM(input_channels > 0, "input_channels", "must be > 0", "Convolutional");
+    ML_CHECK_PARAM(input_height > 0, "input_height", "must be > 0", "Convolutional");
+    ML_CHECK_PARAM(input_width > 0, "input_width", "must be > 0", "Convolutional");
+    ML_CHECK_PARAM(output_channels > 0, "output_channels", "must be > 0", "Convolutional");
+    ML_CHECK_PARAM(kernel_size > 0, "kernel_size", "must be > 0", "Convolutional");
+    ML_CHECK_PARAM(stride > 0, "stride", "must be > 0", "Convolutional");
+    ML_CHECK_PARAM(padding >= 0, "padding", "must be >= 0", "Convolutional");
     
     initialize_kernels();
     initialize_biases();
@@ -56,7 +59,7 @@ Convolutional::Convolutional(int input_channels, int input_height, int input_wid
     activation_ = activation::create_activation(activation);
     if (!activation_) {
         throw ml_exception::InvalidParameterException(
-            "activation", "unknown activation function: " + activation, get_type());
+            "activation", "unknown activation function: " + activation, "Convolutional");
     }
     
     clear_cache();
@@ -64,16 +67,16 @@ Convolutional::Convolutional(int input_channels, int input_height, int input_wid
 
 // Inizializzazione kernels
 void Convolutional::initialize_kernels() {
+    kernels_.resize(output_channels_);
     std::random_device rd;
     std::mt19937 gen(rd());
     
-    // Inizializzazione He per CNN
+    // He initialization per CNN
     double stddev = std::sqrt(2.0 / (input_channels_ * kernel_size_ * kernel_size_));
     std::normal_distribution<> dist(0.0, stddev);
     
-    kernels_.resize(output_channels_);
     for (int oc = 0; oc < output_channels_; ++oc) {
-        kernels_[oc].resize(input_channels_, kernel_size_ * kernel_size_);
+        kernels_[oc] = MatrixXd(input_channels_, kernel_size_ * kernel_size_);
         for (int ic = 0; ic < input_channels_; ++ic) {
             for (int k = 0; k < kernel_size_ * kernel_size_; ++k) {
                 kernels_[oc](ic, k) = dist(gen);
@@ -82,68 +85,190 @@ void Convolutional::initialize_kernels() {
     }
 }
 
+// Inizializzazione bias
 void Convolutional::initialize_biases() {
-    biases_.resize(output_channels_);
-    biases_.setZero(); // Bias inizializzati a zero per CNN
+    biases_ = VectorXd::Zero(output_channels_);
 }
 
-// Calcolo dimensioni output
+// Calcola dimensioni output
 int Convolutional::calculate_output_height() const {
-    if (input_height_ == 0) return 0;
+    if (input_height_ <= 0) return -1;
     return (input_height_ + 2 * padding_ - dilation_ * (kernel_size_ - 1) - 1) / stride_ + 1;
 }
 
 int Convolutional::calculate_output_width() const {
-    if (input_width_ == 0) return 0;
+    if (input_width_ <= 0) return -1;
     return (input_width_ + 2 * padding_ - dilation_ * (kernel_size_ - 1) - 1) / stride_ + 1;
 }
 
-// im2col: trasforma l'input in una matrice colonna per convoluzione efficiente
-MatrixXd Convolutional::im2col(const MatrixXd& input) const {
-    int batch_size = input.rows();
-    int input_size = input_channels_ * input_height_ * input_width_;
-    
-    // Verifica dimensioni input
-    if (input.cols() != input_size) {
-        throw ml_exception::DimensionMismatchException(
-            "input columns",
-            input_size, 1,
-            input.cols(), 1,
-            get_type());
+// Forward pass
+MatrixXd Convolutional::forward(const MatrixXd& input) {
+    // Determina dimensioni se non specificate
+    if (input_height_ <= 0 || input_width_ <= 0) {
+        // Assume che input sia flatten: [batch_size, channels * height * width]
+        // Per semplicità, assumiamo immagini quadrate
+        int spatial_size = static_cast<int>(std::sqrt(input.cols() / input_channels_));
+        if (spatial_size * spatial_size * input_channels_ != input.cols()) {
+            throw ml_exception::DimensionMismatchException(
+                "input dimensions",
+                input.cols(), 1,
+                input_channels_ * spatial_size * spatial_size, 1,
+                "Convolutional");
+        }
+        input_height_ = spatial_size;
+        input_width_ = spatial_size;
     }
     
-    int output_h = calculate_output_height();
-    int output_w = calculate_output_width();
-    int kernel_elements = kernel_size_ * kernel_size_;
+    int batch_size = input.rows();
+    int output_height = calculate_output_height();
+    int output_width = calculate_output_width();
     
-    // Dimensione della matrice colonna: (kernel_elements * input_channels_) x (batch_size * output_h * output_w)
-    int col_rows = input_channels_ * kernel_elements;
-    int col_cols = batch_size * output_h * output_w;
-    MatrixXd col_matrix = MatrixXd::Zero(col_rows, col_cols);
+    if (output_height <= 0 || output_width <= 0) {
+        throw ml_exception::InvalidConfigurationException(
+            "Invalid output dimensions. Check input size, kernel size, stride and padding.",
+            "Convolutional");
+    }
+    
+    // Salva input nella cache
+    cache_.input = input;
     
     // Applica padding se necessario
     MatrixXd padded_input = apply_padding(input);
     
-    // Riempimento della matrice colonna
+    // Converti input in formato colonne (im2col)
+    input_cols_.clear();
     for (int b = 0; b < batch_size; ++b) {
-        for (int oh = 0; oh < output_h; ++oh) {
-            for (int ow = 0; ow < output_w; ++ow) {
-                int col_index = b * output_h * output_w + oh * output_w + ow;
-                
-                for (int ic = 0; ic < input_channels_; ++ic) {
-                    for (int kh = 0; kh < kernel_size_; ++kh) {
-                        for (int kw = 0; kw < kernel_size_; ++kw) {
-                            int input_h = oh * stride_ + kh;
-                            int input_w = ow * stride_ + kw;
-                            
-                            int row_index = ic * kernel_elements + kh * kernel_size_ + kw;
-                            
-                            // Calcola l'indice nell'input appiattito
-                            int input_index = ic * (input_height_ + 2 * padding_) * (input_width_ + 2 * padding_) +
-                                            input_h * (input_width_ + 2 * padding_) + input_w;
-                            
-                            col_matrix(row_index, col_index) = padded_input(b, input_index);
+        MatrixXd col_matrix = im2col(padded_input.row(b));
+        input_cols_.push_back(col_matrix);
+    }
+    
+    // Convoluzione
+    MatrixXd output(batch_size, output_channels_ * output_height * output_width);
+    output_cols_.clear();
+    
+    for (int b = 0; b < batch_size; ++b) {
+        MatrixXd col_result = convolve(input_cols_[b]);
+        output_cols_.push_back(col_result);
+        
+        // Riassembla output
+        for (int oc = 0; oc < output_channels_; ++oc) {
+            for (int oh = 0; oh < output_height; ++oh) {
+                for (int ow = 0; ow < output_width; ++ow) {
+                    int idx = oc * output_height * output_width + oh * output_width + ow;
+                    int col_idx = oh * output_width + ow;
+                    output(b, idx) = col_result(oc, col_idx) + biases_(oc);
+                }
+            }
+        }
+    }
+    
+    // Applica attivazione
+    cache_.z = output;
+    cache_.output = activation_->forward(output);
+    cache_.has_activation = true;
+    
+    return cache_.output;
+}
+
+// Backward pass
+MatrixXd Convolutional::backward(const MatrixXd& gradient, double learning_rate) {
+    if (!cache_.has_activation) {
+        throw ml_exception::InvalidConfigurationException(
+            "Cache not initialized. Call forward() first.", "Convolutional");
+    }
+    
+    int batch_size = gradient.rows();
+    int output_height = calculate_output_height();
+    int output_width = calculate_output_width();
+    
+    // Gradiente rispetto a z (pre-attivazione)
+    MatrixXd dZ = activation_->backward(gradient, cache_.z);
+    
+    // Inizializza gradienti per kernels e bias
+    std::vector<MatrixXd> dKernels(output_channels_);
+    for (int oc = 0; oc < output_channels_; ++oc) {
+        dKernels[oc] = MatrixXd::Zero(input_channels_, kernel_size_ * kernel_size_);
+    }
+    VectorXd dBias = VectorXd::Zero(output_channels_);
+    
+    // Gradiente rispetto all'input
+    MatrixXd dInput = MatrixXd::Zero(batch_size, input_channels_ * input_height_ * input_width_);
+    
+    for (int b = 0; b < batch_size; ++b) {
+        // Riassembla dZ in formato colonne
+        MatrixXd dZ_col(output_channels_, output_height * output_width);
+        for (int oc = 0; oc < output_channels_; ++oc) {
+            for (int oh = 0; oh < output_height; ++oh) {
+                for (int ow = 0; ow < output_width; ++ow) {
+                    int idx = oc * output_height * output_width + oh * output_width + ow;
+                    int col_idx = oh * output_width + ow;
+                    dZ_col(oc, col_idx) = dZ(b, idx);
+                }
+            }
+        }
+        
+        // Gradiente rispetto ai kernels
+        for (int oc = 0; oc < output_channels_; ++oc) {
+            dKernels[oc] += dZ_col.row(oc).transpose() * input_cols_[b];
+            dBias(oc) += dZ_col.row(oc).sum();
+        }
+        
+        // Gradiente rispetto all'input (da propagare indietro)
+        MatrixXd dInput_col = convolve_transpose(dZ_col);
+        MatrixXd dInput_unpadded = col2im(dInput_col);
+        
+        // Rimuovi padding dal gradiente
+        MatrixXd dInput_no_padding = remove_padding(dInput_unpadded);
+        
+        // Somma al gradiente totale dell'input
+        dInput.row(b) += dInput_no_padding;
+    }
+    
+    // Aggiorna kernels e bias
+    for (int oc = 0; oc < output_channels_; ++oc) {
+        kernels_[oc] -= learning_rate * dKernels[oc] / batch_size;
+    }
+    biases_ -= learning_rate * dBias / batch_size;
+    
+    return dInput;
+}
+
+// Operazione im2col
+MatrixXd Convolutional::im2col(const MatrixXd& input) const {
+    int padded_height = input_height_ + 2 * padding_;
+    int padded_width = input_width_ + 2 * padding_;
+    
+    // Risistema input come [channels, padded_height, padded_width]
+    std::vector<MatrixXd> channels(input_channels_);
+    for (int c = 0; c < input_channels_; ++c) {
+        channels[c] = Map<const MatrixXd>(input.data() + c * padded_height * padded_width,
+                                        padded_height, padded_width);
+    }
+    
+    int output_height = calculate_output_height();
+    int output_width = calculate_output_width();
+    int col_rows = kernel_size_ * kernel_size_ * input_channels_;
+    int col_cols = output_height * output_width;
+    
+    MatrixXd col_matrix(col_rows, col_cols);
+    
+    for (int oh = 0; oh < output_height; ++oh) {
+        for (int ow = 0; ow < output_width; ++ow) {
+            int col_idx = oh * output_width + ow;
+            int row_idx = 0;
+            
+            for (int c = 0; c < input_channels_; ++c) {
+                for (int kh = 0; kh < kernel_size_; ++kh) {
+                    for (int kw = 0; kw < kernel_size_; ++kw) {
+                        int ih = oh * stride_ + kh - padding_;
+                        int iw = ow * stride_ + kw - padding_;
+                        
+                        if (ih >= 0 && ih < padded_height && iw >= 0 && iw < padded_width) {
+                            col_matrix(row_idx, col_idx) = channels[c](ih, iw);
+                        } else {
+                            col_matrix(row_idx, col_idx) = 0.0; // Padding zero
                         }
+                        row_idx++;
                     }
                 }
             }
@@ -153,223 +278,87 @@ MatrixXd Convolutional::im2col(const MatrixXd& input) const {
     return col_matrix;
 }
 
-// col2im: inverso di im2col
+// Operazione col2im
 MatrixXd Convolutional::col2im(const MatrixXd& col_matrix) const {
-    int batch_size = cache_.input.rows();
-    int output_h = calculate_output_height();
-    int output_w = calculate_output_width();
-    int kernel_elements = kernel_size_ * kernel_size_;
+    int padded_height = input_height_ + 2 * padding_;
+    int padded_width = input_width_ + 2 * padding_;
+    MatrixXd image = MatrixXd::Zero(input_channels_, padded_height * padded_width);
     
-    int padded_h = input_height_ + 2 * padding_;
-    int padded_w = input_width_ + 2 * padding_;
-    MatrixXd gradient_padded = MatrixXd::Zero(batch_size, input_channels_ * padded_h * padded_w);
+    int output_height = calculate_output_height();
+    int output_width = calculate_output_width();
     
-    // Riempimento del gradiente con padding
-    for (int b = 0; b < batch_size; ++b) {
-        for (int oh = 0; oh < output_h; ++oh) {
-            for (int ow = 0; ow < output_w; ++ow) {
-                int col_index = b * output_h * output_w + oh * output_w + ow;
-                
-                for (int ic = 0; ic < input_channels_; ++ic) {
-                    for (int kh = 0; kh < kernel_size_; ++kh) {
-                        for (int kw = 0; kw < kernel_size_; ++kw) {
-                            int input_h = oh * stride_ + kh;
-                            int input_w = ow * stride_ + kw;
-                            
-                            int row_index = ic * kernel_elements + kh * kernel_size_ + kw;
-                            
-                            // Calcola l'indice nell'input con padding
-                            int input_index = ic * padded_h * padded_w + input_h * padded_w + input_w;
-                            
-                            gradient_padded(b, input_index) += col_matrix(row_index, col_index);
+    for (int oh = 0; oh < output_height; ++oh) {
+        for (int ow = 0; ow < output_width; ++ow) {
+            int col_idx = oh * output_width + ow;
+            
+            int row_idx = 0;
+            for (int c = 0; c < input_channels_; ++c) {
+                for (int kh = 0; kh < kernel_size_; ++kh) {
+                    for (int kw = 0; kw < kernel_size_; ++kw) {
+                        int ih = oh * stride_ + kh - padding_;
+                        int iw = ow * stride_ + kw - padding_;
+                        
+                        if (ih >= 0 && ih < padded_height && iw >= 0 && iw < padded_width) {
+                            int pixel_idx = ih * padded_width + iw;
+                            image(c, pixel_idx) += col_matrix(row_idx, col_idx);
                         }
+                        row_idx++;
                     }
                 }
             }
         }
     }
     
-    // Rimuovi il padding se necessario
-    return remove_padding(gradient_padded);
+    return image;
 }
 
-// Forward propagation
-MatrixXd Convolutional::forward(const MatrixXd& input) {
-    // Memorizza l'input nella cache
-    cache_.input = input;
+// Convoluzione diretta
+MatrixXd Convolutional::convolve(const MatrixXd& col_matrix) const {
+    int output_height = calculate_output_height();
+    int output_width = calculate_output_width();
+    MatrixXd result(output_channels_, output_height * output_width);
     
-    // Estrai dimensioni batch
-    int batch_size = input.rows();
-    
-    // Se input_height_ e input_width_ non sono specificati, cerca di dedurli
-    if (input_height_ == 0 || input_width_ == 0) {
-        // Assumiamo che l'input sia già appiattito
-        int total_elements = input.cols();
-        if (total_elements % input_channels_ != 0) {
-            throw ml_exception::InvalidParameterException(
-                "input dimensions", 
-                "total elements must be divisible by input_channels", 
-                get_type());
-        }
-        
-        int spatial_elements = total_elements / input_channels_;
-        // Prova a trovare fattori per height e width
-        for (int h = 1; h <= spatial_elements; ++h) {
-            if (spatial_elements % h == 0) {
-                input_width_ = spatial_elements / h;
-                input_height_ = h;
-                if (input_width_ >= kernel_size_ && input_height_ >= kernel_size_) {
-                    break;
-                }
-            }
-        }
-        
-        if (input_height_ == 0 || input_width_ == 0) {
-            throw ml_exception::InvalidParameterException(
-                "input dimensions", 
-                "cannot determine valid height and width", 
-                get_type());
-        }
-    }
-    
-    // Applica im2col
-    input_cols_ = im2col(input);
-    
-    // Calcola dimensioni output
-    int output_h = calculate_output_height();
-    int output_w = calculate_output_width();
-    int output_size = output_channels_ * output_h * output_w;
-    
-    // Inizializza output
-    MatrixXd output = MatrixXd::Zero(batch_size, output_size);
-    
-    // Convoluzione usando prodotto matriciale
     for (int oc = 0; oc < output_channels_; ++oc) {
-        // Kernel per questo canale di output: [input_channels * kernel_elements] x 1
-        MatrixXd kernel_flat = kernels_[oc].reshaped(input_channels_ * kernel_size_ * kernel_size_, 1);
-        
-        // Prodotto matriciale: kernel^T * input_cols
-        MatrixXd conv_result = kernel_flat.transpose() * input_cols_;
-        
-        // Aggiungi bias e riorganizza
-        for (int b = 0; b < batch_size; ++b) {
-            for (int oh = 0; oh < output_h; ++oh) {
-                for (int ow = 0; ow < output_w; ++ow) {
-                    int col_index = b * output_h * output_w + oh * output_w + ow;
-                    int output_index = oc * output_h * output_w + oh * output_w + ow;
-                    
-                    output(b, output_index) = conv_result(0, col_index) + biases_(oc);
-                }
-            }
-        }
+        result.row(oc) = kernels_[oc].reshaped().transpose() * col_matrix;
     }
     
-    // Applica funzione di attivazione
-    cache_.z = output;
-    cache_.output = activation_->forward(output);
-    cache_.has_activation = true;
-    
-    // Salva output_cols_ per backward (se necessario)
-    output_cols_ = input_cols_; // Memorizza per backward efficiente
-    
-    return cache_.output;
+    return result;
 }
 
-// Backward propagation
-MatrixXd Convolutional::backward(const MatrixXd& gradient, double learning_rate) {
-    if (!cache_.has_activation) {
-        throw ml_exception::InvalidConfigurationException(
-            "Cache not initialized. Call forward() first.", get_type());
-    }
-    
-    int batch_size = cache_.input.rows();
-    int output_h = calculate_output_height();
-    int output_w = calculate_output_width();
-    int kernel_elements = kernel_size_ * kernel_size_;
-    
-    // Gradiente rispetto a z (pre-attivazione)
-    MatrixXd dZ = activation_->backward(gradient, cache_.z);
-    
-    // Riorganizza dZ in forma colonna
-    MatrixXd dZ_cols = MatrixXd::Zero(output_channels_, batch_size * output_h * output_w);
-    
-    for (int b = 0; b < batch_size; ++b) {
-        for (int oc = 0; oc < output_channels_; ++oc) {
-            for (int oh = 0; oh < output_h; ++oh) {
-                for (int ow = 0; ow < output_w; ++ow) {
-                    int col_index = b * output_h * output_w + oh * output_w + ow;
-                    int dZ_index = oc * output_h * output_w + oh * output_w + ow;
-                    
-                    dZ_cols(oc, col_index) = dZ(b, dZ_index);
-                }
-            }
-        }
-    }
-    
-    // Calcola gradienti per i kernels
-    for (int oc = 0; oc < output_channels_; ++oc) {
-        MatrixXd dW = MatrixXd::Zero(input_channels_, kernel_elements);
-        
-        for (int ic = 0; ic < input_channels_; ++ic) {
-            for (int k = 0; k < kernel_elements; ++k) {
-                int row_index = ic * kernel_elements + k;
-                
-                // dW[oc][ic][k] = sum_over_batches(dZ_cols[oc] * input_cols[row_index])
-                double grad = 0.0;
-                for (int col = 0; col < dZ_cols.cols(); ++col) {
-                    grad += dZ_cols(oc, col) * input_cols_(row_index, col);
-                }
-                
-                dW(ic, k) = grad / batch_size;
-            }
-        }
-        
-        // Aggiorna kernel
-        kernels_[oc] -= learning_rate * dW;
-    }
-    
-    // Calcola gradienti per i bias
-    VectorXd db = VectorXd::Zero(output_channels_);
-    for (int oc = 0; oc < output_channels_; ++oc) {
-        db(oc) = dZ_cols.row(oc).sum() / batch_size;
-    }
-    biases_ -= learning_rate * db;
-    
-    // Calcola gradiente rispetto all'input (per propagare indietro)
-    // dA_prev = sum_over_output_channels(kernel^T * dZ)
-    MatrixXd dA_prev_cols = MatrixXd::Zero(input_channels_ * kernel_elements, 
-                                          batch_size * output_h * output_w);
+// Convoluzione trasposta (per backward)
+MatrixXd Convolutional::convolve_transpose(const MatrixXd& gradient) const {
+    int col_rows = kernel_size_ * kernel_size_ * input_channels_;
+    int col_cols = gradient.cols();
+    MatrixXd result(col_rows, col_cols);
     
     for (int oc = 0; oc < output_channels_; ++oc) {
-        MatrixXd kernel_T = kernels_[oc].transpose(); // [kernel_elements x input_channels]
-        dA_prev_cols += kernel_T * dZ_cols.row(oc);
+        result += kernels_[oc].reshaped() * gradient.row(oc);
     }
     
-    // Converti da formato colonna a formato immagine
-    MatrixXd dA_prev = col2im(dA_prev_cols);
-    
-    return dA_prev;
+    return result;
 }
 
-// Padding utilities
+// Applica padding
 MatrixXd Convolutional::apply_padding(const MatrixXd& input) const {
     if (padding_ == 0) return input;
     
     int batch_size = input.rows();
-    int padded_h = input_height_ + 2 * padding_;
-    int padded_w = input_width_ + 2 * padding_;
-    int padded_size = input_channels_ * padded_h * padded_w;
+    int padded_height = input_height_ + 2 * padding_;
+    int padded_width = input_width_ + 2 * padding_;
     
-    MatrixXd padded = MatrixXd::Zero(batch_size, padded_size);
+    MatrixXd padded(batch_size, input_channels_ * padded_height * padded_width);
+    padded.setZero();
     
     for (int b = 0; b < batch_size; ++b) {
-        for (int ic = 0; ic < input_channels_; ++ic) {
+        for (int c = 0; c < input_channels_; ++c) {
             for (int h = 0; h < input_height_; ++h) {
                 for (int w = 0; w < input_width_; ++w) {
-                    int input_idx = ic * input_height_ * input_width_ + h * input_width_ + w;
-                    int padded_idx = ic * padded_h * padded_w + (h + padding_) * padded_w + (w + padding_);
-                    
-                    padded(b, padded_idx) = input(b, input_idx);
+                    int orig_idx = c * input_height_ * input_width_ + h * input_width_ + w;
+                    int padded_h = h + padding_;
+                    int padded_w = w + padding_;
+                    int padded_idx = c * padded_height * padded_width + 
+                                    padded_h * padded_width + padded_w;
+                    padded(b, padded_idx) = input(b, orig_idx);
                 }
             }
         }
@@ -378,22 +367,25 @@ MatrixXd Convolutional::apply_padding(const MatrixXd& input) const {
     return padded;
 }
 
+// Rimuovi padding
 MatrixXd Convolutional::remove_padding(const MatrixXd& padded) const {
     if (padding_ == 0) return padded;
     
     int batch_size = padded.rows();
-    int padded_h = input_height_ + 2 * padding_;
-    int padded_w = input_width_ + 2 * padding_;
+    int padded_height = input_height_ + 2 * padding_;
+    int padded_width = input_width_ + 2 * padding_;
     
-    MatrixXd unpadded = MatrixXd::Zero(batch_size, input_channels_ * input_height_ * input_width_);
+    MatrixXd unpadded(batch_size, input_channels_ * input_height_ * input_width_);
     
     for (int b = 0; b < batch_size; ++b) {
-        for (int ic = 0; ic < input_channels_; ++ic) {
+        for (int c = 0; c < input_channels_; ++c) {
             for (int h = 0; h < input_height_; ++h) {
                 for (int w = 0; w < input_width_; ++w) {
-                    int padded_idx = ic * padded_h * padded_w + (h + padding_) * padded_w + (w + padding_);
-                    int unpadded_idx = ic * input_height_ * input_width_ + h * input_width_ + w;
-                    
+                    int unpadded_idx = c * input_height_ * input_width_ + h * input_width_ + w;
+                    int padded_h = h + padding_;
+                    int padded_w = w + padding_;
+                    int padded_idx = c * padded_height * padded_width + 
+                                    padded_h * padded_width + padded_w;
                     unpadded(b, unpadded_idx) = padded(b, padded_idx);
                 }
             }
@@ -403,15 +395,21 @@ MatrixXd Convolutional::remove_padding(const MatrixXd& padded) const {
     return unpadded;
 }
 
-// Metodi di interfaccia
+// Informazioni
 int Convolutional::get_input_size() const {
-    return input_channels_ * input_height_ * input_width_;
+    if (input_height_ > 0 && input_width_ > 0) {
+        return input_channels_ * input_height_ * input_width_;
+    }
+    return -1; // Dimensioni non ancora definite
 }
 
 int Convolutional::get_output_size() const {
-    int output_h = calculate_output_height();
-    int output_w = calculate_output_width();
-    return output_channels_ * output_h * output_w;
+    int output_height = calculate_output_height();
+    int output_width = calculate_output_width();
+    if (output_height > 0 && output_width > 0) {
+        return output_channels_ * output_height * output_width;
+    }
+    return -1;
 }
 
 int Convolutional::get_parameter_count() const {
@@ -422,45 +420,25 @@ int Convolutional::get_parameter_count() const {
 
 std::string Convolutional::get_config() const {
     std::ostringstream oss;
-    oss << "Convolutional(input=(" << input_channels_ << ", " 
-        << input_height_ << ", " << input_width_ << "), "
-        << "output=" << output_channels_ << ", "
-        << "kernel=" << kernel_size_ << ", "
-        << "stride=" << stride_ << ", "
-        << "padding=" << padding_ << ", "
-        << "activation=" << activation_->get_type() << ", "
-        << "params=" << get_parameter_count() << ")";
+    oss << "Convolutional(input=(" << input_channels_;
+    if (input_height_ > 0) oss << "x" << input_height_ << "x" << input_width_;
+    oss << "), output=" << output_channels_;
+    oss << ", kernel=" << kernel_size_;
+    oss << ", stride=" << stride_;
+    oss << ", padding=" << padding_;
+    oss << ", activation=" << activation_->get_type();
+    oss << ", params=" << get_parameter_count() << ")";
     return oss.str();
 }
 
-// Setters
-void Convolutional::set_weights(const MatrixXd& weights) {
-    // Per CNN, i pesi sono organizzati diversamente
-    // Questa implementazione semplificata assume input appiattito
-    throw ml_exception::NotImplementedException(
-        "set_weights not implemented for Convolutional layer", get_type());
-}
-
-void Convolutional::set_biases(const VectorXd& biases) {
-    if (biases.size() != output_channels_) {
-        throw ml_exception::DimensionMismatchException(
-            "biases",
-            output_channels_, 1,
-            biases.size(), 1,
-            get_type());
-    }
-    biases_ = biases;
-}
-
-MatrixXd Convolutional::get_weights() const {
-    // Appiattisci tutti i kernel in una singola matrice
-    int kernel_elements = kernel_size_ * kernel_size_;
-    MatrixXd all_weights(output_channels_, input_channels_ * kernel_elements);
-    
+// Getters e setters
+Eigen::MatrixXd Convolutional::get_weights() const {
+    // Appiattisce tutti i kernels in una matrice
+    int total_kernel_params = input_channels_ * kernel_size_ * kernel_size_;
+    MatrixXd all_weights(output_channels_, total_kernel_params);
     for (int oc = 0; oc < output_channels_; ++oc) {
-        all_weights.row(oc) = kernels_[oc].reshaped(1, input_channels_ * kernel_elements);
+        all_weights.row(oc) = kernels_[oc].reshaped().transpose();
     }
-    
     return all_weights;
 }
 
@@ -468,6 +446,34 @@ Eigen::VectorXd Convolutional::get_biases() const {
     return biases_;
 }
 
+void Convolutional::set_weights(const Eigen::MatrixXd& weights) {
+    if (weights.rows() != output_channels_ || 
+        weights.cols() != input_channels_ * kernel_size_ * kernel_size_) {
+        throw ml_exception::DimensionMismatchException(
+            "weights",
+            output_channels_, input_channels_ * kernel_size_ * kernel_size_,
+            weights.rows(), weights.cols(),
+            "Convolutional");
+    }
+    
+    for (int oc = 0; oc < output_channels_; ++oc) {
+        kernels_[oc] = Map<const MatrixXd>(weights.row(oc).data(),
+                                         input_channels_, kernel_size_ * kernel_size_);
+    }
+}
+
+void Convolutional::set_biases(const Eigen::VectorXd& biases) {
+    if (biases.size() != output_channels_) {
+        throw ml_exception::DimensionMismatchException(
+            "biases",
+            output_channels_, 1,
+            biases.size(), 1,
+            "Convolutional");
+    }
+    biases_ = biases;
+}
+
+// Cache management
 void Convolutional::clear_cache() {
     cache_.input = MatrixXd();
     cache_.z = MatrixXd();
@@ -477,11 +483,28 @@ void Convolutional::clear_cache() {
     output_cols_.clear();
 }
 
+// Shape utilities
+std::vector<int> Convolutional::get_output_shape() const {
+    int output_height = calculate_output_height();
+    int output_width = calculate_output_width();
+    if (output_height > 0 && output_width > 0) {
+        return {output_channels_, output_height, output_width};
+    }
+    return {};
+}
+
+std::vector<int> Convolutional::get_input_shape() const {
+    if (input_height_ > 0 && input_width_ > 0) {
+        return {input_channels_, input_height_, input_width_};
+    }
+    return {input_channels_};
+}
+
 // Serializzazione
 void Convolutional::serialize(std::ostream& out) const {
     using namespace serialization;
     
-    // Serializza parametri
+    // Serializza dimensioni
     out.write(reinterpret_cast<const char*>(&input_channels_), sizeof(int));
     out.write(reinterpret_cast<const char*>(&input_height_), sizeof(int));
     out.write(reinterpret_cast<const char*>(&input_width_), sizeof(int));
@@ -493,9 +516,6 @@ void Convolutional::serialize(std::ostream& out) const {
     out.write(reinterpret_cast<const char*>(&groups_), sizeof(int));
     
     // Serializza kernels
-    int num_kernels = kernels_.size();
-    out.write(reinterpret_cast<const char*>(&num_kernels), sizeof(int));
-    
     for (const auto& kernel : kernels_) {
         eigen_utils::serialize_eigen(kernel, out);
     }
@@ -513,7 +533,7 @@ void Convolutional::serialize(std::ostream& out) const {
 void Convolutional::deserialize(std::istream& in) {
     using namespace serialization;
     
-    // Deserializza parametri
+    // Deserializza dimensioni
     in.read(reinterpret_cast<char*>(&input_channels_), sizeof(int));
     in.read(reinterpret_cast<char*>(&input_height_), sizeof(int));
     in.read(reinterpret_cast<char*>(&input_width_), sizeof(int));
@@ -524,13 +544,10 @@ void Convolutional::deserialize(std::istream& in) {
     in.read(reinterpret_cast<char*>(&dilation_), sizeof(int));
     in.read(reinterpret_cast<char*>(&groups_), sizeof(int));
     
-    // Deserializza kernels
-    int num_kernels;
-    in.read(reinterpret_cast<char*>(&num_kernels), sizeof(int));
-    kernels_.resize(num_kernels);
-    
-    for (int i = 0; i < num_kernels; ++i) {
-        eigen_utils::deserialize_eigen(kernels_[i], in);
+    // Re-inizializza kernels
+    kernels_.resize(output_channels_);
+    for (int oc = 0; oc < output_channels_; ++oc) {
+        eigen_utils::deserialize_eigen(kernels_[oc], in);
     }
     
     // Deserializza biases
@@ -546,39 +563,32 @@ void Convolutional::deserialize(std::istream& in) {
     activation_ = activation::create_activation(act_type);
     if (!activation_) {
         throw ml_exception::DeserializationException(
-            "layer file", "unknown activation type: " + act_type, get_type());
+            "layer file", "unknown activation type: " + act_type, "Convolutional");
     }
     
+    // Pulisci cache
     clear_cache();
 }
 
 // Metodi specifici CNN
 void Convolutional::set_padding_mode(const std::string& mode) {
-    // Implementazione base: solo padding con zeri supportato
+    // Per ora supportiamo solo "zeros"
     if (mode != "zeros") {
-        throw ml_exception::NotImplementedException(
-            "Only 'zeros' padding mode is currently supported", get_type());
+        throw ml_exception::InvalidParameterException(
+            "padding_mode", "only 'zeros' is supported currently", "Convolutional");
     }
 }
 
 void Convolutional::set_dilation(int dilation) {
-    ML_CHECK_PARAM(dilation > 0, "dilation", "must be > 0", get_type());
+    ML_CHECK_PARAM(dilation > 0, "dilation", "must be > 0", "Convolutional");
     dilation_ = dilation;
 }
 
 void Convolutional::set_groups(int groups) {
-    ML_CHECK_PARAM(groups > 0, "groups", "must be > 0", get_type());
-    ML_CHECK_PARAM(input_channels_ % groups == 0, 
-                  "groups", "input_channels must be divisible by groups", get_type());
-    ML_CHECK_PARAM(output_channels_ % groups == 0,
-                  "groups", "output_channels must be divisible by groups", get_type());
+    ML_CHECK_PARAM(groups > 0, "groups", "must be > 0", "Convolutional");
+    ML_CHECK_PARAM(input_channels_ % groups == 0, "groups", 
+                  "must divide input_channels evenly", "Convolutional");
+    ML_CHECK_PARAM(output_channels_ % groups == 0, "groups",
+                  "must divide output_channels evenly", "Convolutional");
     groups_ = groups;
-}
-
-std::vector<int> Convolutional::get_output_shape() const {
-    return {output_channels_, calculate_output_height(), calculate_output_width()};
-}
-
-std::vector<int> Convolutional::get_input_shape() const {
-    return {input_channels_, input_height_, input_width_};
 }

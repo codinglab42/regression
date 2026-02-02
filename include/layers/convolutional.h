@@ -2,6 +2,7 @@
 #define CONVOLUTIONAL_LAYER_H
 
 #include "layer.h"
+#include "activation/activation.h"
 #include <vector>
 #include <memory>
 

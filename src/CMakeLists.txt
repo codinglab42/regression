@@ -16,6 +16,9 @@ set(ML_LIBRARY_SOURCES
     
     # Layers
     layers/dense.cpp
+    layers/convolutional.cpp
+    layers/pooling.cpp
+    layers/recurrent.cpp
     
     # Activation
     activation/activation.cpp

@@ -8,13 +8,33 @@
 #include "regression/logistic_regression.h"
 #include "regression/math_utils.h"
 #include "neural_network/neural_network.h"
+
+// Includi le eccezioni
 #include "exceptions/ml_exception.h"
+#include "exceptions/dimension_exception.h"
+#include "exceptions/fitting_exception.h"
+#include "exceptions/io_exception.h"
+#include "exceptions/validation_exception.h"
 
 namespace py = pybind11;
 
 // Convertitore per eccezioni C++ → Python
-void translate_exception(const ml_exception::MLException& e) {
-    PyErr_SetString(PyExc_RuntimeError, e.what());
+void translate_exception(const std::exception& e) {
+    // Controlla se è un'eccezione ML specifica
+    try {
+        throw;
+    } catch (const ml_exception::MLException& ml_e) {
+        // Usa il messaggio già formattato
+        PyErr_SetString(PyExc_RuntimeError, ml_e.what());
+    } catch (const std::invalid_argument& e) {
+        PyErr_SetString(PyExc_ValueError, e.what());
+    } catch (const std::runtime_error& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+    } catch (const std::exception& e) {
+        PyErr_SetString(PyExc_Exception, e.what());
+    } catch (...) {
+        PyErr_SetString(PyExc_Exception, "Unknown C++ exception");
+    }
 }
 
 PYBIND11_MODULE(regression_module, m) {
@@ -65,7 +85,22 @@ PYBIND11_MODULE(regression_module, m) {
     m.attr("__email__") = "your.email@example.com";
     
     // Registra il traduttore di eccezioni
-    py::register_exception_translator<ml_exception::MLException>(&translate_exception);
+    // MODIFICA: Usa std::exception come base per catturare tutto
+    py::register_exception_translator([](std::exception_ptr p) {
+        try {
+            if (p) std::rethrow_exception(p);
+        } catch (const ml_exception::MLException& e) {
+            PyErr_SetString(PyExc_RuntimeError, e.what());
+        } catch (const std::invalid_argument& e) {
+            PyErr_SetString(PyExc_ValueError, e.what());
+        } catch (const std::runtime_error& e) {
+            PyErr_SetString(PyExc_RuntimeError, e.what());
+        } catch (const std::exception& e) {
+            PyErr_SetString(PyExc_Exception, e.what());
+        } catch (...) {
+            PyErr_SetString(PyExc_Exception, "Unknown C++ exception");
+        }
+    });
     
     // Bind LinearRegression::Solver enum
     py::enum_<regression::LinearRegression::Solver> solver_enum(m, "LinearSolver");
@@ -376,6 +411,6 @@ PYBIND11_MODULE(regression_module, m) {
     });
     
     // Register Eigen matrix converters
-    py::implicitly_convertible<py::array_t<double>, Eigen::MatrixXd>();
-    py::implicitly_convertible<py::array_t<double>, Eigen::VectorXd>();
+    // py::implicitly_convertible<py::array_t<double>, Eigen::MatrixXd>();
+    // py::implicitly_convertible<py::array_t<double>, Eigen::VectorXd>();
 }

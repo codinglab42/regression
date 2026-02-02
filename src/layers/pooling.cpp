@@ -1,8 +1,8 @@
 #include "layers/pooling.h"
 #include "serialization/serializable.h"
 #include <algorithm>
-#include <numeric>
 #include <stdexcept>
+#include <limits>
 
 using namespace Eigen;
 using namespace layers;
@@ -11,268 +11,308 @@ using namespace layers;
 Pooling::Pooling(int pool_size, int stride, PoolType type, int channels)
     : pool_size_(pool_size), stride_(stride), channels_(channels), pool_type_(type) {
     
-    ML_CHECK_PARAM(pool_size > 0, "pool_size", "must be > 0", get_type());
-    ML_CHECK_PARAM(stride > 0, "stride", "must be > 0", get_type());
-    ML_CHECK_PARAM(channels > 0, "channels", "must be > 0", get_type());
+    ML_CHECK_PARAM(pool_size > 0, "pool_size", "must be > 0", "Pooling");
+    ML_CHECK_PARAM(stride > 0, "stride", "must be > 0", "Pooling");
+    ML_CHECK_PARAM(channels > 0, "channels", "must be > 0", "Pooling");
     
     clear_cache();
 }
 
-// Calcolo dimensioni output
+// Calcola dimensioni output
 std::vector<int> Pooling::calculate_output_shape(const std::vector<int>& input_shape) const {
-    if (input_shape.size() != 3) {
-        throw ml_exception::InvalidParameterException(
-            "input_shape", "must have 3 dimensions (channels, height, width)", get_type());
+    // Assume input shape: [channels, height, width] oppure flatten
+    if (input_shape.size() == 1) {
+        // Flatten: [channels * height * width]
+        int total_elements = input_shape[0];
+        int spatial_size = static_cast<int>(std::sqrt(total_elements / channels_));
+        if (spatial_size * spatial_size * channels_ != total_elements) {
+            throw ml_exception::DimensionMismatchException(
+                "input dimensions",
+                total_elements, 1,
+                channels_ * spatial_size * spatial_size, 1,
+                "Pooling");
+        }
+        
+        int output_height = (spatial_size - pool_size_) / stride_ + 1;
+        int output_width = (spatial_size - pool_size_) / stride_ + 1;
+        
+        return {channels_ * output_height * output_width};
     }
     
-    int channels = input_shape[0];
-    int input_h = input_shape[1];
-    int input_w = input_shape[2];
-    
-    int output_h = (input_h - pool_size_) / stride_ + 1;
-    int output_w = (input_w - pool_size_) / stride_ + 1;
-    
-    return {channels, output_h, output_w};
+    // Per ora assumiamo input flatten
+    return {};
 }
 
-// Forward propagation
+// Forward pass
 MatrixXd Pooling::forward(const MatrixXd& input) {
-    cache_.input = input;
-    
-    // Determina dimensioni input
+    // Assumiamo input flatten: [batch_size, channels * height * width]
     int batch_size = input.rows();
-    int total_elements = input.cols();
+    int total_input_elements = input.cols();
     
-    if (total_elements % channels_ != 0) {
-        throw ml_exception::InvalidParameterException(
-            "input dimensions", 
-            "total elements must be divisible by channels", 
-            get_type());
+    // Calcola dimensioni spaziali
+    int spatial_size = static_cast<int>(std::sqrt(total_input_elements / channels_));
+    if (spatial_size * spatial_size * channels_ != total_input_elements) {
+        throw ml_exception::DimensionMismatchException(
+            "input dimensions",
+            total_input_elements, 1,
+            channels_ * spatial_size * spatial_size, 1,
+            "Pooling");
     }
     
-    int spatial_elements = total_elements / channels_;
-    
-    // Trova altezza e larghezza (assumiamo input quadrato per semplicità)
-    int input_size = static_cast<int>(std::sqrt(spatial_elements));
-    if (input_size * input_size != spatial_elements) {
-        throw ml_exception::InvalidParameterException(
-            "input dimensions", 
-            "spatial elements must be a perfect square", 
-            get_type());
-    }
-    
-    int input_h = input_size;
-    int input_w = input_size;
+    int input_height = spatial_size;
+    int input_width = spatial_size;
     
     // Calcola dimensioni output
-    int output_h = (input_h - pool_size_) / stride_ + 1;
-    int output_w = (input_w - pool_size_) / stride_ + 1;
-    int output_size = channels_ * output_h * output_w;
+    int output_height = (input_height - pool_size_) / stride_ + 1;
+    int output_width = (input_width - pool_size_) / stride_ + 1;
+    int output_size = channels_ * output_height * output_width;
     
-    // Inizializza output
-    MatrixXd output = MatrixXd::Zero(batch_size, output_size);
+    // Salva input nella cache
+    cache_.input = input;
+    cache_.has_activation = false; // Pooling non ha attivazione
     
-    // Pulisci cache max_indices
-    max_indices_.clear();
-    max_indices_.resize(batch_size * channels_);
+    // Risistema input
+    std::vector<std::vector<MatrixXd>> input_reshaped(
+        batch_size, std::vector<MatrixXd>(channels_));
     
-    // Applica pooling per ogni batch e canale
     for (int b = 0; b < batch_size; ++b) {
         for (int c = 0; c < channels_; ++c) {
-            int batch_channel_idx = b * channels_ + c;
-            
-            // Estrai il canale corrente
-            MatrixXd channel_input = MatrixXd::Zero(input_h, input_w);
-            for (int h = 0; h < input_h; ++h) {
-                for (int w = 0; w < input_w; ++w) {
-                    int input_idx = c * input_h * input_w + h * input_w + w;
-                    channel_input(h, w) = input(b, input_idx);
+            input_reshaped[b][c] = MatrixXd(input_height, input_width);
+            for (int h = 0; h < input_height; ++h) {
+                for (int w = 0; w < input_width; ++w) {
+                    int idx = c * input_height * input_width + h * input_width + w;
+                    input_reshaped[b][c](h, w) = input(b, idx);
                 }
             }
+        }
+    }
+    
+    // Pooling
+    MatrixXd output(batch_size, output_size);
+    max_indices_.clear();
+    max_indices_.resize(batch_size);
+    
+    for (int b = 0; b < batch_size; ++b) {
+        max_indices_[b].resize(channels_ * output_height * output_width);
+        
+        for (int c = 0; c < channels_; ++c) {
+            MatrixXd pooled = pool_2d(input_reshaped[b][c], c, b);
             
-            // Applica pooling 2D
-            MatrixXd pooled = MatrixXd::Zero(output_h, output_w);
-            
-            for (int oh = 0; oh < output_h; ++oh) {
-                for (int ow = 0; ow < output_w; ++ow) {
-                    int start_h = oh * stride_;
-                    int start_w = ow * stride_;
-                    int end_h = std::min(start_h + pool_size_, input_h);
-                    int end_w = std::min(start_w + pool_size_, input_w);
-                    
-                    if (pool_type_ == MAX) {
-                        // Max pooling
-                        double max_val = -std::numeric_limits<double>::infinity();
-                        int max_idx_h = -1, max_idx_w = -1;
-                        
-                        for (int ph = start_h; ph < end_h; ++ph) {
-                            for (int pw = start_w; pw < end_w; ++pw) {
-                                if (channel_input(ph, pw) > max_val) {
-                                    max_val = channel_input(ph, pw);
-                                    max_idx_h = ph;
-                                    max_idx_w = pw;
-                                }
-                            }
-                        }
-                        
-                        pooled(oh, ow) = max_val;
-                        
-                        // Memorizza l'indice del massimo per backward
-                        if (max_idx_h != -1 && max_idx_w != -1) {
-                            int max_idx = max_idx_h * input_w + max_idx_w;
-                            max_indices_[batch_channel_idx].push_back(max_idx);
-                        }
-                    } else {
-                        // Average pooling
-                        double sum = 0.0;
-                        int count = 0;
-                        
-                        for (int ph = start_h; ph < end_h; ++ph) {
-                            for (int pw = start_w; pw < end_w; ++pw) {
-                                sum += channel_input(ph, pw);
-                                count++;
-                            }
-                        }
-                        
-                        pooled(oh, ow) = sum / count;
-                    }
-                }
-            }
-            
-            // Salva l'output appiattito
-            for (int oh = 0; oh < output_h; ++oh) {
-                for (int ow = 0; ow < output_w; ++ow) {
-                    int output_idx = c * output_h * output_w + oh * output_w + ow;
-                    output(b, output_idx) = pooled(oh, ow);
+            // Salva output
+            for (int oh = 0; oh < output_height; ++oh) {
+                for (int ow = 0; ow < output_width; ++ow) {
+                    int idx = c * output_height * output_width + oh * output_width + ow;
+                    output(b, idx) = pooled(oh, ow);
                 }
             }
         }
     }
     
     cache_.output = output;
-    cache_.has_activation = false; // Pooling non ha attivazione
+    return output;
+}
+
+// Pooling 2D
+MatrixXd Pooling::pool_2d(const MatrixXd& input, int channel, int batch) {
+    int input_height = input.rows();
+    int input_width = input.cols();
+    int output_height = (input_height - pool_size_) / stride_ + 1;
+    int output_width = (input_width - pool_size_) / stride_ + 1;
+    
+    MatrixXd output(output_height, output_width);
+    
+    for (int oh = 0; oh < output_height; ++oh) {
+        for (int ow = 0; ow < output_width; ++ow) {
+            int start_h = oh * stride_;
+            int start_w = ow * stride_;
+            int end_h = std::min(start_h + pool_size_, input_height);
+            int end_w = std::min(start_w + pool_size_, input_width);
+            
+            if (pool_type_ == MAX) {
+                double max_val = -std::numeric_limits<double>::infinity();
+                int max_idx = -1;
+                
+                for (int h = start_h; h < end_h; ++h) {
+                    for (int w = start_w; w < end_w; ++w) {
+                        if (input(h, w) > max_val) {
+                            max_val = input(h, w);
+                            max_idx = h * input_width + w;
+                        }
+                    }
+                }
+                
+                output(oh, ow) = max_val;
+                
+                // Salva indice per backward
+                int output_idx = channel * output_height * output_width + oh * output_width + ow;
+                max_indices_[batch][output_idx] = max_idx;
+            } else if (pool_type_ == AVERAGE) {
+                double sum = 0.0;
+                int count = 0;
+                
+                for (int h = start_h; h < end_h; ++h) {
+                    for (int w = start_w; w < end_w; ++w) {
+                        sum += input(h, w);
+                        count++;
+                    }
+                }
+                
+                output(oh, ow) = sum / count;
+            }
+        }
+    }
     
     return output;
 }
 
-// Backward propagation
+// Backward pass
 MatrixXd Pooling::backward(const MatrixXd& gradient, double learning_rate) {
-    if (cache_.input.rows() == 0) {
-        throw ml_exception::InvalidConfigurationException(
-            "Cache not initialized. Call forward() first.", get_type());
+    // Pooling non ha parametri da aggiornare
+    if (gradient.rows() != cache_.input.rows()) {
+        throw ml_exception::DimensionMismatchException(
+            "gradient rows",
+            cache_.input.rows(), 1,
+            gradient.rows(), 1,
+            "Pooling");
     }
     
-    int batch_size = cache_.input.rows();
-    int input_cols = cache_.input.cols();
-    int output_cols = gradient.cols();
+    int batch_size = gradient.rows();
+    int output_size = gradient.cols();
     
-    // Determina dimensioni
-    int total_input_elements = input_cols;
-    int spatial_input_elements = total_input_elements / channels_;
-    int input_size = static_cast<int>(std::sqrt(spatial_input_elements));
-    int input_h = input_size;
-    int input_w = input_size;
+    // Calcola dimensioni
+    int total_input_elements = cache_.input.cols();
+    int spatial_size = static_cast<int>(std::sqrt(total_input_elements / channels_));
+    int input_height = spatial_size;
+    int input_width = spatial_size;
+    int output_height = (input_height - pool_size_) / stride_ + 1;
+    int output_width = (input_width - pool_size_) / stride_ + 1;
     
-    int spatial_output_elements = output_cols / channels_;
-    int output_size = static_cast<int>(std::sqrt(spatial_output_elements));
-    int output_h = output_size;
-    int output_w = output_size;
-    
-    // Inizializza gradiente rispetto all'input
-    MatrixXd dA_prev = MatrixXd::Zero(batch_size, input_cols);
+    // Gradiente rispetto all'input
+    MatrixXd dInput = MatrixXd::Zero(batch_size, total_input_elements);
     
     for (int b = 0; b < batch_size; ++b) {
         for (int c = 0; c < channels_; ++c) {
-            int batch_channel_idx = b * channels_ + c;
-            
-            // Estrai il gradiente per questo canale
-            MatrixXd channel_grad = MatrixXd::Zero(output_h, output_w);
-            for (int oh = 0; oh < output_h; ++oh) {
-                for (int ow = 0; ow < output_w; ++ow) {
-                    int grad_idx = c * output_h * output_w + oh * output_w + ow;
-                    channel_grad(oh, ow) = gradient(b, grad_idx);
+            // Estrai gradiente per questo canale
+            MatrixXd grad_2d(output_height, output_width);
+            for (int oh = 0; oh < output_height; ++oh) {
+                for (int ow = 0; ow < output_width; ++ow) {
+                    int idx = c * output_height * output_width + oh * output_width + ow;
+                    grad_2d(oh, ow) = gradient(b, idx);
                 }
             }
             
-            // Calcola gradiente rispetto all'input
-            MatrixXd input_grad = MatrixXd::Zero(input_h, input_w);
+            // Calcola gradiente backward
+            MatrixXd dInput_2d = pool_backward_2d(grad_2d, c, b);
             
-            if (pool_type_ == MAX) {
-                // Per max pooling, il gradiente va solo al valore massimo
-                int idx = 0;
-                for (int oh = 0; oh < output_h; ++oh) {
-                    for (int ow = 0; ow < output_w; ++ow) {
-                        if (idx < max_indices_[batch_channel_idx].size()) {
-                            int max_idx = max_indices_[batch_channel_idx][idx];
-                            int max_h = max_idx / input_w;
-                            int max_w = max_idx % input_w;
-                            
-                            input_grad(max_h, max_w) += channel_grad(oh, ow);
-                            idx++;
-                        }
-                    }
-                }
-            } else {
-                // Per average pooling, il gradiente è distribuito uniformemente
-                for (int oh = 0; oh < output_h; ++oh) {
-                    for (int ow = 0; ow < output_w; ++ow) {
-                        int start_h = oh * stride_;
-                        int start_w = ow * stride_;
-                        int end_h = std::min(start_h + pool_size_, input_h);
-                        int end_w = std::min(start_w + pool_size_, input_w);
-                        
-                        int pool_area = (end_h - start_h) * (end_w - start_w);
-                        double grad_per_element = channel_grad(oh, ow) / pool_area;
-                        
-                        for (int ph = start_h; ph < end_h; ++ph) {
-                            for (int pw = start_w; pw < end_w; ++pw) {
-                                input_grad(ph, pw) += grad_per_element;
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // Salva il gradiente appiattito
-            for (int h = 0; h < input_h; ++h) {
-                for (int w = 0; w < input_w; ++w) {
-                    int input_idx = c * input_h * input_w + h * input_w + w;
-                    dA_prev(b, input_idx) = input_grad(h, w);
+            // Risistema nel formato flatten
+            for (int h = 0; h < input_height; ++h) {
+                for (int w = 0; w < input_width; ++w) {
+                    int idx = c * input_height * input_width + h * input_width + w;
+                    dInput(b, idx) += dInput_2d(h, w);
                 }
             }
         }
     }
     
-    return dA_prev;
+    return dInput;
 }
 
-// Metodi di interfaccia
+// Backward 2D
+MatrixXd Pooling::pool_backward_2d(const MatrixXd& gradient, int channel, int batch) {
+    int output_height = gradient.rows();
+    int output_width = gradient.cols();
+    
+    int total_input_elements = cache_.input.cols();
+    int spatial_size = static_cast<int>(std::sqrt(total_input_elements / channels_));
+    int input_height = spatial_size;
+    int input_width = spatial_size;
+    
+    MatrixXd dInput = MatrixXd::Zero(input_height, input_width);
+    
+    if (pool_type_ == MAX) {
+        for (int oh = 0; oh < output_height; ++oh) {
+            for (int ow = 0; ow < output_width; ++ow) {
+                int output_idx = channel * output_height * output_width + oh * output_width + ow;
+                int max_idx = max_indices_[batch][output_idx];
+                
+                if (max_idx >= 0) {
+                    int h = max_idx / input_width;
+                    int w = max_idx % input_width;
+                    dInput(h, w) += gradient(oh, ow);
+                }
+            }
+        }
+    } else if (pool_type_ == AVERAGE) {
+        for (int oh = 0; oh < output_height; ++oh) {
+            for (int ow = 0; ow < output_width; ++ow) {
+                int start_h = oh * stride_;
+                int start_w = ow * stride_;
+                int end_h = std::min(start_h + pool_size_, input_height);
+                int end_w = std::min(start_w + pool_size_, input_width);
+                
+                double grad_val = gradient(oh, ow);
+                int count = (end_h - start_h) * (end_w - start_w);
+                double avg_grad = grad_val / count;
+                
+                for (int h = start_h; h < end_h; ++h) {
+                    for (int w = start_w; w < end_w; ++w) {
+                        dInput(h, w) += avg_grad;
+                    }
+                }
+            }
+        }
+    }
+    
+    return dInput;
+}
+
+// Informazioni
 int Pooling::get_input_size() const {
-    // Ritorna 0 perché dipende dall'input effettivo
-    return 0;
+    // Non conosciamo le dimensioni finché non vediamo l'input
+    return -1;
 }
 
 int Pooling::get_output_size() const {
-    // Ritorna 0 perché dipende dall'input effettivo
-    return 0;
+    // Uguale a get_input_size()
+    return -1;
 }
 
 std::string Pooling::get_config() const {
-    std::string type_str = (pool_type_ == MAX) ? "MAX" : "AVERAGE";
     std::ostringstream oss;
-    oss << "Pooling(pool=" << pool_size_ 
+    oss << "Pooling(pool_size=" << pool_size_
         << ", stride=" << stride_
-        << ", type=" << type_str
+        << ", type=" << (pool_type_ == MAX ? "max" : "average")
         << ", channels=" << channels_ << ")";
     return oss.str();
 }
 
+// Cache management
 void Pooling::clear_cache() {
     cache_.input = MatrixXd();
-    cache_.z = MatrixXd();
     cache_.output = MatrixXd();
     cache_.has_activation = false;
     max_indices_.clear();
+}
+
+// Utility functions
+std::vector<int> Pooling::unravel_index(int flat_index, const std::vector<int>& shape) const {
+    std::vector<int> indices(shape.size());
+    int product = 1;
+    for (int i = static_cast<int>(shape.size()) - 1; i >= 0; --i) {
+        indices[i] = (flat_index / product) % shape[i];
+        product *= shape[i];
+    }
+    return indices;
+}
+
+int Pooling::ravel_index(const std::vector<int>& indices, const std::vector<int>& shape) const {
+    int index = 0;
+    int product = 1;
+    for (int i = static_cast<int>(shape.size()) - 1; i >= 0; --i) {
+        index += indices[i] * product;
+        product *= shape[i];
+    }
+    return index;
 }
 
 // Serializzazione
@@ -282,7 +322,9 @@ void Pooling::serialize(std::ostream& out) const {
     out.write(reinterpret_cast<const char*>(&pool_size_), sizeof(int));
     out.write(reinterpret_cast<const char*>(&stride_), sizeof(int));
     out.write(reinterpret_cast<const char*>(&channels_), sizeof(int));
-    out.write(reinterpret_cast<const char*>(&pool_type_), sizeof(PoolType));
+    
+    int type_int = static_cast<int>(pool_type_);
+    out.write(reinterpret_cast<const char*>(&type_int), sizeof(int));
 }
 
 void Pooling::deserialize(std::istream& in) {
@@ -291,32 +333,10 @@ void Pooling::deserialize(std::istream& in) {
     in.read(reinterpret_cast<char*>(&pool_size_), sizeof(int));
     in.read(reinterpret_cast<char*>(&stride_), sizeof(int));
     in.read(reinterpret_cast<char*>(&channels_), sizeof(int));
-    in.read(reinterpret_cast<char*>(&pool_type_), sizeof(PoolType));
+    
+    int type_int;
+    in.read(reinterpret_cast<char*>(&type_int), sizeof(int));
+    pool_type_ = static_cast<PoolType>(type_int);
     
     clear_cache();
-}
-
-// Utility functions
-std::vector<int> Pooling::unravel_index(int flat_index, const std::vector<int>& shape) const {
-    std::vector<int> indices(shape.size());
-    int product = 1;
-    
-    for (int i = shape.size() - 1; i >= 0; --i) {
-        indices[i] = (flat_index / product) % shape[i];
-        product *= shape[i];
-    }
-    
-    return indices;
-}
-
-int Pooling::ravel_index(const std::vector<int>& indices, const std::vector<int>& shape) const {
-    int flat_index = 0;
-    int product = 1;
-    
-    for (int i = shape.size() - 1; i >= 0; --i) {
-        flat_index += indices[i] * product;
-        product *= shape[i];
-    }
-    
-    return flat_index;
 }
