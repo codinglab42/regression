@@ -1,7 +1,7 @@
 // tests/test_regression.cpp
 #include <iostream>
-#include "regression/linear_regression.h"
-#include "regression/logistic_regression.h"
+#include "models/linear_regression.h"
+#include "models/logistic_regression.h"
 
 int main() {
     std::cout << "Running regression tests..." << std::endl;
@@ -13,7 +13,7 @@ int main() {
         X << 1, 2, 3;
         y << 2, 4, 6;
         
-        regression::LinearRegression lr;
+        models::LinearRegression lr;
         lr.fit(X, y);
         
         Eigen::VectorXd pred = lr.predict(X);
@@ -33,7 +33,7 @@ int main() {
               4, 1;
         y2 << 0, 0, 1, 1;
         
-        regression::LogisticRegression logr;
+        models::LogisticRegression logr;
         logr.fit(X2, y2);
         
         double accuracy = logr.score(X2, y2);

@@ -2,10 +2,10 @@
 #define LOGISTIC_REGRESSION_H
 
 #include "estimator.h"
-#include "math_utils.h"
+#include "utils/math_utils.h"
 #include "exceptions/exception_macros.h"
 
-namespace regression {
+namespace models {
 
     class LogisticRegression : public Estimator {
     public:

@@ -2,7 +2,7 @@
 #include <iostream>
 #include <vector>
 #include <Eigen/Dense>
-#include "neural_network/neural_network.h"
+#include "models/neural_network.h"
 
 using namespace Eigen;
 using namespace neural_network;
@@ -30,7 +30,7 @@ void test_cnn_mnist_like() {
     // Output: 32 x 28 x 28
     
     // Layer 2: Pooling
-    nn.add_pooling_layer(2, 2, layers::Pooling::MAX, 32);
+    nn.add_pooling_layer(2, 2, components::layers::Pooling::MAX, 32);
     // Output: 32 x 14 x 14
     
     // Layer 3: Convoluzione
@@ -38,14 +38,14 @@ void test_cnn_mnist_like() {
     // Output: 64 x 14 x 14
     
     // Layer 4: Pooling
-    nn.add_pooling_layer(2, 2, layers::Pooling::MAX, 64);
+    nn.add_pooling_layer(2, 2, components::layers::Pooling::MAX, 64);
     // Output: 64 x 7 x 7
     
     // Appiattisci per layer fully connected
     // 64 * 7 * 7 = 3136 features
-    nn.add_layer(std::make_unique<layers::Dense>(64 * 7 * 7, 128, "relu"));
-    nn.add_layer(std::make_unique<layers::Dense>(128, 64, "relu"));
-    nn.add_layer(std::make_unique<layers::Dense>(64, 1, "sigmoid"));
+    nn.add_layer(std::make_unique<components::layers::Dense>(64 * 7 * 7, 128, "relu"));
+    nn.add_layer(std::make_unique<components::layers::Dense>(128, 64, "relu"));
+    nn.add_layer(std::make_unique<components::layers::Dense>(64, 1, "sigmoid"));
     
     // Configura training
     nn.set_epochs(50);
@@ -90,8 +90,8 @@ void test_rnn_sequence() {
     nn.add_recurrent_layer(64, "tanh", true); // Output: seq_length * 64
     
     // Layer denso per ogni timestep
-    nn.add_layer(std::make_unique<layers::Dense>(seq_length * 64, 32, "relu"));
-    nn.add_layer(std::make_unique<layers::Dense>(32, 1, "linear"));
+    nn.add_layer(std::make_unique<components::layers::Dense>(seq_length * 64, 32, "relu"));
+    nn.add_layer(std::make_unique<components::layers::Dense>(32, 1, "linear"));
     
     // Configura
     nn.set_epochs(30);

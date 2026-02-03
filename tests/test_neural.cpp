@@ -1,12 +1,12 @@
 #include <iostream>
 #include <vector>
 #include <Eigen/Dense>
-#include "neural_network/neural_network.h"
-#include "regression/linear_regression.h"
-#include "regression/logistic_regression.h"
+#include "models/neural_network.h"
+#include "models/linear_regression.h"
+#include "models/logistic_regression.h"
 
 using namespace Eigen;
-using namespace neural_network;
+using namespace models;
 
 void test_neural_network_regression() {
     std::cout << "=== Test Neural Network Regression ===" << std::endl;
@@ -40,7 +40,7 @@ void test_neural_network_regression() {
     std::cout << "  R²: " << r2 << std::endl;
     
     // Confronta con Linear Regression
-    regression::LinearRegression lr;
+    models::LinearRegression lr;
     lr.fit(X, y);
     VectorXd y_lr = lr.predict(X);
     double lr_mse = (y - y_lr).squaredNorm() / n_samples;
@@ -95,7 +95,7 @@ void test_neural_network_classification() {
     std::cout << "  Loss history size: " << nn.get_loss_history().size() << std::endl;
     
     // Confronta con Logistic Regression
-    regression::LogisticRegression logreg(0.1, 1000, 0.0, 1e-4, false);
+    models::LogisticRegression logreg(0.1, 1000, 0.0, 1e-4, false);
     logreg.fit(X, y);
     double logreg_acc = logreg.score(X, y);
     

@@ -12,7 +12,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' 
 
 echo -e "${BLUE}==========================================${NC}"
-echo -e "${BLUE}   BUILD REGRESSION LIBRARY (PYENV)       ${NC}"
+echo -e "${BLUE}         BUILD ML LIBRARY (PYENV)         ${NC}"
 echo -e "${BLUE}==========================================${NC}"
 
 # 1. RILEVAMENTO AMBIENTE (PYENV)
@@ -56,9 +56,9 @@ make -j$NPROC
 echo -e "\n${BLUE}CHECK GENERATED FILES...${NC}"
 
 # Controlla librerie core
-if ls lib/libregression* 1> /dev/null 2>&1; then
+if ls lib/libml_library* 1> /dev/null 2>&1; then
     echo -e "${GREEN}✓ Librerie generate in build/lib:${NC}"
-    ls -h lib/libregression*
+    ls -h lib/libml_library*
 else
     echo -e "${RED}✗ Errore: Librerie core non trovate!${NC}"
 fi

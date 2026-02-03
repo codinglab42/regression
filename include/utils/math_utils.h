@@ -10,7 +10,7 @@
 #include <string>
 #include "exceptions/exception_macros.h"
 
-namespace regression {
+namespace utils {
 
     class MathUtils {
     public:

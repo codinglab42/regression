@@ -3,11 +3,11 @@
 #include <pybind11/eigen.h>
 #include <pybind11/functional.h>
 
-#include "regression/estimator.h"
-#include "regression/linear_regression.h"
-#include "regression/logistic_regression.h"
-#include "regression/math_utils.h"
-#include "neural_network/neural_network.h"
+#include "models/estimator.h"
+#include "models/linear_regression.h"
+#include "models/logistic_regression.h"
+#include "utils/math_utils.h"
+#include "models/neural_network.h"
 
 // Includi le eccezioni
 #include "exceptions/ml_exception.h"
@@ -103,117 +103,117 @@ PYBIND11_MODULE(machine_learning_module, m) {
     });
     
     // Bind LinearRegression::Solver enum
-    py::enum_<regression::LinearRegression::Solver> solver_enum(m, "LinearSolver");
-    solver_enum.value("GRADIENT_DESCENT", regression::LinearRegression::Solver::GRADIENT_DESCENT)
-               .value("NORMAL_EQUATION", regression::LinearRegression::Solver::NORMAL_EQUATION)
-               .value("SVD", regression::LinearRegression::Solver::SVD)
+    py::enum_<models::LinearRegression::Solver> solver_enum(m, "LinearSolver");
+    solver_enum.value("GRADIENT_DESCENT", models::LinearRegression::Solver::GRADIENT_DESCENT)
+               .value("NORMAL_EQUATION", models::LinearRegression::Solver::NORMAL_EQUATION)
+               .value("SVD", models::LinearRegression::Solver::SVD)
                .export_values();
     
     // Bind Estimator base class
-    py::class_<regression::Estimator, std::shared_ptr<regression::Estimator>>(m, "Estimator")
-        .def("fit", &regression::Estimator::fit,
+    py::class_<models::Estimator, std::shared_ptr<models::Estimator>>(m, "Estimator")
+        .def("fit", &models::Estimator::fit,
              py::arg("X"), py::arg("y"),
              "Fit the model to the data")
-        .def("predict", &regression::Estimator::predict,
+        .def("predict", &models::Estimator::predict,
              py::arg("X"),
              "Make predictions")
-        .def("score", &regression::Estimator::score,
+        .def("score", &models::Estimator::score,
              py::arg("X"), py::arg("y"),
              "Compute model score")
-        .def("save", &regression::Estimator::save,
+        .def("save", &models::Estimator::save,
              py::arg("filename"),
              "Save model to file")
-        .def("load", &regression::Estimator::load,
+        .def("load", &models::Estimator::load,
              py::arg("filename"),
              "Load model from file")
-        .def("to_string", &regression::Estimator::to_string,
+        .def("to_string", &models::Estimator::to_string,
              "String representation of the model")
-        .def("__repr__", &regression::Estimator::to_string)
-        .def("__str__", &regression::Estimator::to_string);
+        .def("__repr__", &models::Estimator::to_string)
+        .def("__str__", &models::Estimator::to_string);
     
     // Bind LinearRegression
-    py::class_<regression::LinearRegression, regression::Estimator, 
-               std::shared_ptr<regression::LinearRegression>>(m, "LinearRegression")
+    py::class_<models::LinearRegression, models::Estimator, 
+               std::shared_ptr<models::LinearRegression>>(m, "LinearRegression")
         .def(py::init<>())
-        .def(py::init<double, int, double, regression::LinearRegression::Solver>(),
+        .def(py::init<double, int, double, models::LinearRegression::Solver>(),
              py::arg("learning_rate") = 0.01,
              py::arg("max_iter") = 1000,
              py::arg("lambda") = 0.0,
-             py::arg("solver") = regression::LinearRegression::Solver::GRADIENT_DESCENT)
+             py::arg("solver") = models::LinearRegression::Solver::GRADIENT_DESCENT)
         
-        .def("fit", &regression::LinearRegression::fit,
+        .def("fit", &models::LinearRegression::fit,
              py::arg("X"), py::arg("y"),
              "Fit the linear regression model")
         
-        .def("predict", py::overload_cast<const Eigen::MatrixXd&>(&regression::LinearRegression::predict, py::const_),
+        .def("predict", py::overload_cast<const Eigen::MatrixXd&>(&models::LinearRegression::predict, py::const_),
              py::arg("X"),
              "Predict using the linear model")
         
-        .def("predict", py::overload_cast<const Eigen::VectorXd&>(&regression::LinearRegression::predict, py::const_),
+        .def("predict", py::overload_cast<const Eigen::VectorXd&>(&models::LinearRegression::predict, py::const_),
              py::arg("x"),
              "Predict a single sample")
         
-        .def("score", &regression::LinearRegression::score,
+        .def("score", &models::LinearRegression::score,
              py::arg("X"), py::arg("y"),
              "Return the R² score")
         
-        .def("mse", &regression::LinearRegression::mse,
+        .def("mse", &models::LinearRegression::mse,
              py::arg("X"), py::arg("y"),
              "Compute Mean Squared Error")
         
-        .def("mae", &regression::LinearRegression::mae,
+        .def("mae", &models::LinearRegression::mae,
              py::arg("X"), py::arg("y"),
              "Compute Mean Absolute Error")
         
-        .def("r2_score", &regression::LinearRegression::r2_score,
+        .def("r2_score", &models::LinearRegression::r2_score,
              py::arg("X"), py::arg("y"),
              "Compute R² score")
         
-        .def("save", &regression::LinearRegression::save,
+        .def("save", &models::LinearRegression::save,
              py::arg("filename"),
              "Save model to file")
         
-        .def("load", &regression::LinearRegression::load,
+        .def("load", &models::LinearRegression::load,
              py::arg("filename"),
              "Load model from file")
         
-        .def("to_string", &regression::LinearRegression::to_string,
+        .def("to_string", &models::LinearRegression::to_string,
              "String representation of the model")
         
-        .def_static("cross_val_score", &regression::LinearRegression::cross_val_score,
+        .def_static("cross_val_score", &models::LinearRegression::cross_val_score,
                     py::arg("X"), py::arg("y"),
                     py::arg("cv") = 5,
-                    py::arg("solver") = regression::LinearRegression::Solver::GRADIENT_DESCENT,
+                    py::arg("solver") = models::LinearRegression::Solver::GRADIENT_DESCENT,
                     "Cross-validation scores")
         
-        .def_property_readonly("coefficients", &regression::LinearRegression::coefficients,
+        .def_property_readonly("coefficients", &models::LinearRegression::coefficients,
                                "Model coefficients (theta)")
         
-        .def_property_readonly("intercept", &regression::LinearRegression::intercept,
+        .def_property_readonly("intercept", &models::LinearRegression::intercept,
                                "Model intercept")
         
-        .def_property_readonly("cost_history", &regression::LinearRegression::cost_history,
+        .def_property_readonly("cost_history", &models::LinearRegression::cost_history,
                                "History of cost values during training")
         
         // Setters
-        .def("set_learning_rate", &regression::LinearRegression::set_learning_rate,
+        .def("set_learning_rate", &models::LinearRegression::set_learning_rate,
              py::arg("rate"),
              "Set learning rate")
         
-        .def("set_max_iterations", &regression::LinearRegression::set_max_iterations,
+        .def("set_max_iterations", &models::LinearRegression::set_max_iterations,
              py::arg("max_iter"),
              "Set maximum iterations")
         
-        .def("set_lambda", &regression::LinearRegression::set_lambda,
+        .def("set_lambda", &models::LinearRegression::set_lambda,
              py::arg("lambda"),
              "Set regularization parameter")
         
-        .def("__repr__", &regression::LinearRegression::to_string)
-        .def("__str__", &regression::LinearRegression::to_string);
+        .def("__repr__", &models::LinearRegression::to_string)
+        .def("__str__", &models::LinearRegression::to_string);
     
     // Bind LogisticRegression
-    py::class_<regression::LogisticRegression, regression::Estimator,
-               std::shared_ptr<regression::LogisticRegression>>(m, "LogisticRegression")
+    py::class_<models::LogisticRegression, models::Estimator,
+               std::shared_ptr<models::LogisticRegression>>(m, "LogisticRegression")
         .def(py::init<>())
         .def(py::init<double, int, double, double, bool>(),
              py::arg("learning_rate") = 0.1,
@@ -222,80 +222,80 @@ PYBIND11_MODULE(machine_learning_module, m) {
              py::arg("tolerance") = 1e-4,
              py::arg("verbose") = false)
         
-        .def("fit", &regression::LogisticRegression::fit,
+        .def("fit", &models::LogisticRegression::fit,
              py::arg("X"), py::arg("y"),
              "Fit the logistic regression model")
         
-        .def("predict", &regression::LogisticRegression::predict,
+        .def("predict", &models::LogisticRegression::predict,
              py::arg("X"),
              "Predict probabilities")
         
-        .def("predict_class", &regression::LogisticRegression::predict_class,
+        .def("predict_class", &models::LogisticRegression::predict_class,
              py::arg("X"), py::arg("threshold") = 0.5,
              "Predict class labels")
         
-        .def("score", &regression::LogisticRegression::score,
+        .def("score", &models::LogisticRegression::score,
              py::arg("X"), py::arg("y"),
              "Return the accuracy score")
         
-        .def("precision_recall_f1", &regression::LogisticRegression::precision_recall_f1,
+        .def("precision_recall_f1", &models::LogisticRegression::precision_recall_f1,
              py::arg("X"), py::arg("y"), py::arg("threshold") = 0.5,
              "Compute precision, recall and F1 score")
         
-        .def("confusion_matrix", &regression::LogisticRegression::confusion_matrix,
+        .def("confusion_matrix", &models::LogisticRegression::confusion_matrix,
              py::arg("X"), py::arg("y"), py::arg("threshold") = 0.5,
              "Compute confusion matrix")
         
-        .def("save", &regression::LogisticRegression::save,
+        .def("save", &models::LogisticRegression::save,
              py::arg("filename"),
              "Save model to file")
         
-        .def("load", &regression::LogisticRegression::load,
+        .def("load", &models::LogisticRegression::load,
              py::arg("filename"),
              "Load model from file")
         
-        .def("to_string", &regression::LogisticRegression::to_string,
+        .def("to_string", &models::LogisticRegression::to_string,
              "String representation of the model")
         
-        .def_property_readonly("coefficients", &regression::LogisticRegression::coefficients,
+        .def_property_readonly("coefficients", &models::LogisticRegression::coefficients,
                                "Model coefficients (theta)")
         
-        .def_property_readonly("intercept", &regression::LogisticRegression::intercept,
+        .def_property_readonly("intercept", &models::LogisticRegression::intercept,
                                "Model intercept")
         
-        .def_property_readonly("cost_history", &regression::LogisticRegression::cost_history,
+        .def_property_readonly("cost_history", &models::LogisticRegression::cost_history,
                                "History of cost values during training")
         
-        .def_property_readonly("accuracy_history", &regression::LogisticRegression::accuracy_history,
+        .def_property_readonly("accuracy_history", &models::LogisticRegression::accuracy_history,
                                "History of accuracy values during training")
         
         // Setters
-        .def("set_learning_rate", &regression::LogisticRegression::set_learning_rate,
+        .def("set_learning_rate", &models::LogisticRegression::set_learning_rate,
              py::arg("rate"),
              "Set learning rate")
         
-        .def("set_max_iterations", &regression::LogisticRegression::set_max_iterations,
+        .def("set_max_iterations", &models::LogisticRegression::set_max_iterations,
              py::arg("max_iter"),
              "Set maximum iterations")
         
-        .def("set_lambda", &regression::LogisticRegression::set_lambda,
+        .def("set_lambda", &models::LogisticRegression::set_lambda,
              py::arg("lambda"),
              "Set regularization parameter")
         
-        .def("set_tolerance", &regression::LogisticRegression::set_tolerance,
+        .def("set_tolerance", &models::LogisticRegression::set_tolerance,
              py::arg("tolerance"),
              "Set convergence tolerance")
         
-        .def("set_verbose", &regression::LogisticRegression::set_verbose,
+        .def("set_verbose", &models::LogisticRegression::set_verbose,
              py::arg("verbose"),
              "Set verbose mode")
         
-        .def("__repr__", &regression::LogisticRegression::to_string)
-        .def("__str__", &regression::LogisticRegression::to_string);
+        .def("__repr__", &models::LogisticRegression::to_string)
+        .def("__str__", &models::LogisticRegression::to_string);
     
     // Bind NeuralNetwork
-    py::class_<neural_network::NeuralNetwork, regression::Estimator,
-               std::shared_ptr<neural_network::NeuralNetwork>>(m, "NeuralNetwork")
+    py::class_<models::NeuralNetwork, models::Estimator,
+               std::shared_ptr<models::NeuralNetwork>>(m, "NeuralNetwork")
         .def(py::init<>())
         .def(py::init<const std::vector<int>&, const std::string&, const std::string&>(),
              py::arg("layer_sizes"),
@@ -303,100 +303,100 @@ PYBIND11_MODULE(machine_learning_module, m) {
              py::arg("output_activation") = "sigmoid",
              "Create a neural network with specified architecture")
         
-        .def("fit", &neural_network::NeuralNetwork::fit,
+        .def("fit", &models::NeuralNetwork::fit,
              py::arg("X"), py::arg("y"),
              "Fit the neural network")
         
-        .def("predict", &neural_network::NeuralNetwork::predict,
+        .def("predict", &models::NeuralNetwork::predict,
              py::arg("X"),
              "Make predictions")
         
-        .def("predict_proba", &neural_network::NeuralNetwork::predict_proba,
+        .def("predict_proba", &models::NeuralNetwork::predict_proba,
              py::arg("X"),
              "Predict probabilities")
         
-        .def("score", &neural_network::NeuralNetwork::score,
+        .def("score", &models::NeuralNetwork::score,
              py::arg("X"), py::arg("y"),
              "Compute model score")
         
-        .def("save", &neural_network::NeuralNetwork::save,
+        .def("save", &models::NeuralNetwork::save,
              py::arg("filename"),
              "Save model to file")
         
-        .def("load", &neural_network::NeuralNetwork::load,
+        .def("load", &models::NeuralNetwork::load,
              py::arg("filename"),
              "Load model from file")
         
-        .def("to_string", &neural_network::NeuralNetwork::to_string,
+        .def("to_string", &models::NeuralNetwork::to_string,
              "String representation of the model")
         
         // Configuration methods
-        .def("set_batch_size", &neural_network::NeuralNetwork::set_batch_size,
+        .def("set_batch_size", &models::NeuralNetwork::set_batch_size,
              py::arg("batch_size"),
              "Set batch size for training")
         
-        .def("set_epochs", &neural_network::NeuralNetwork::set_epochs,
+        .def("set_epochs", &models::NeuralNetwork::set_epochs,
              py::arg("epochs"),
              "Set number of training epochs")
         
-        .def("set_validation_split", &neural_network::NeuralNetwork::set_validation_split,
+        .def("set_validation_split", &models::NeuralNetwork::set_validation_split,
              py::arg("split"),
              "Set validation split ratio")
         
-        .def("set_verbose", &neural_network::NeuralNetwork::set_verbose,
+        .def("set_verbose", &models::NeuralNetwork::set_verbose,
              py::arg("verbose"),
              "Set verbose mode")
         
-        .def("set_loss_function", &neural_network::NeuralNetwork::set_loss_function,
+        .def("set_loss_function", &models::NeuralNetwork::set_loss_function,
              py::arg("loss"),
              "Set loss function")
         
         // Getters
-        .def_property_readonly("loss_history", &neural_network::NeuralNetwork::get_loss_history,
+        .def_property_readonly("loss_history", &models::NeuralNetwork::get_loss_history,
                                "History of loss values during training")
         
-        .def_property_readonly("val_loss_history", &neural_network::NeuralNetwork::get_val_loss_history,
+        .def_property_readonly("val_loss_history", &models::NeuralNetwork::get_val_loss_history,
                                "History of validation loss values")
         
-        .def_property_readonly("accuracy_history", &neural_network::NeuralNetwork::get_accuracy_history,
+        .def_property_readonly("accuracy_history", &models::NeuralNetwork::get_accuracy_history,
                                "History of accuracy values")
         
-        .def_property_readonly("num_layers", &neural_network::NeuralNetwork::get_num_layers,
+        .def_property_readonly("num_layers", &models::NeuralNetwork::get_num_layers,
                                "Number of layers in the network")
         
-        .def_property_readonly("num_parameters", &neural_network::NeuralNetwork::get_num_parameters,
+        .def_property_readonly("num_parameters", &models::NeuralNetwork::get_num_parameters,
                                "Total number of parameters in the network")
         
-        .def("__repr__", &neural_network::NeuralNetwork::to_string)
-        .def("__str__", &neural_network::NeuralNetwork::to_string);
+        .def("__repr__", &models::NeuralNetwork::to_string)
+        .def("__str__", &models::NeuralNetwork::to_string);
     
     // Bind MathUtils as a utility module
-    py::class_<regression::MathUtils>(m, "MathUtils")
-        .def_static("sigmoid", py::overload_cast<double>(&regression::MathUtils::sigmoid),
+    py::class_<utils::MathUtils>(m, "MathUtils")
+        .def_static("sigmoid", py::overload_cast<double>(&utils::MathUtils::sigmoid),
                     py::arg("z"),
                     "Compute sigmoid function")
         
-        .def_static("sigmoid_vec", &regression::MathUtils::sigmoid_vec,
+        .def_static("sigmoid_vec", &utils::MathUtils::sigmoid_vec,
                     py::arg("z"),
                     "Compute sigmoid for a vector")
         
-        .def_static("add_intercept", &regression::MathUtils::add_intercept,
+        .def_static("add_intercept", &utils::MathUtils::add_intercept,
                     py::arg("X"),
                     "Add intercept column to matrix")
         
-        .def_static("train_test_split", &regression::MathUtils::train_test_split,
+        .def_static("train_test_split", &utils::MathUtils::train_test_split,
                     py::arg("X"), py::arg("y"),
                     py::arg("test_size") = 0.2,
                     py::arg("random_state") = 42,
                     py::arg("model_type") = "",
                     "Split data into train and test sets")
         
-        .def_static("accuracy_score", &regression::MathUtils::accuracy_score,
+        .def_static("accuracy_score", &utils::MathUtils::accuracy_score,
                     py::arg("y_true"), py::arg("y_pred"),
                     py::arg("model_type") = "",
                     "Compute accuracy score")
         
-        .def_static("one_hot_encode", &regression::MathUtils::one_hot_encode,
+        .def_static("one_hot_encode", &utils::MathUtils::one_hot_encode,
                     py::arg("labels"), py::arg("num_classes"),
                     "One-hot encode labels");
     

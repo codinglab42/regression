@@ -8,24 +8,24 @@ message(STATUS "📦 Configuring ML Library sources...")
 # ============================================================================
 set(ML_LIBRARY_SOURCES
     # Regressione
-    linear_regression.cpp
-    logistic_regression.cpp
+    models/linear_regression.cpp
+    models/logistic_regression.cpp
     
     # Neural Network
-    neural_network/neural_network.cpp
+    models/neural_network.cpp
     
     # Layers
-    layers/dense.cpp
-    layers/convolutional.cpp
-    layers/pooling.cpp
-    layers/recurrent.cpp
+    components/layers/dense.cpp
+    components/layers/convolutional.cpp
+    components/layers/pooling.cpp
+    components/layers/recurrent.cpp
     
     # Activation
-    activation/activation.cpp
+    components/activation/activation.cpp
     
     # Optimizers
-    optimizers/sgd.cpp
-    optimizers/adam.cpp
+    components/optimizers/sgd.cpp
+    components/optimizers/adam.cpp
     
     ## Serialization
     #serialization/model_serializer.cpp
@@ -47,7 +47,7 @@ set(PRIVATE_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/..
     ${CMAKE_SOURCE_DIR}/include/exceptions
-    ${CMAKE_SOURCE_DIR}/include/serialization
+    ${CMAKE_SOURCE_DIR}/
 )
 
 # ============================================================================

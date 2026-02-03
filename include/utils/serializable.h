@@ -10,7 +10,7 @@
 #include "exceptions/validation_exception.h"
 #include "exceptions/exception_macros.h"
 
-namespace serialization {
+namespace utils {
 
     // Interfaccia base per oggetti serializzabili
     class ISerializable {

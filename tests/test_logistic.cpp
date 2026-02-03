@@ -6,10 +6,10 @@
 #include <iostream>
 #include <cmath>
 #include <cassert>
-#include "regression/logistic_regression.h"
-#include "regression/math_utils.h"
+#include "models/logistic_regression.h"
+#include "utils/math_utils.h"
 
-using namespace regression;
+using namespace models;
 
 void test_logistic_regression_basic() {
     std::cout << "Test 1: Basic Logistic Regression (separazione lineare)... ";

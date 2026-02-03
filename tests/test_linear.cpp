@@ -6,10 +6,10 @@
 #include <iostream>
 #include <cmath>
 #include <cassert>
-#include "regression/linear_regression.h"
-#include "regression/math_utils.h"
+#include "models/linear_regression.h"
+#include "utils/math_utils.h"
 
-using namespace regression;
+using namespace models;
 
 void test_linear_regression_basic() {
     std::cout << "Test 1: Basic Linear Regression (y = 2x + 3)... ";
