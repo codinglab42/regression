@@ -27,6 +27,9 @@ namespace models {
         void add_layer(std::unique_ptr<layers::Layer> layer);
         void set_optimizer(std::unique_ptr<optimizers::Optimizer> optimizer);
         void set_loss_function(const std::string& loss);
+
+        // Metodi per visualizzare l'architettura
+        void summary() const;
         
         // Metodi Estimator
         void fit(const Eigen::MatrixXd& X, const Eigen::VectorXd& y) override;

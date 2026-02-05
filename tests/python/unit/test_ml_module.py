@@ -3,7 +3,7 @@ import sys
 import os
 
 # Add build directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../build/pybinding'))
+#sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../build/pybinding'))
 
 try:
     import machine_learning_module as ml

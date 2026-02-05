@@ -539,3 +539,27 @@ std::string NeuralNetwork::to_string() const {
     oss << "]";
     return oss.str();
 }
+
+void NeuralNetwork::summary() const {
+    std::cout << std::string(65, '-') << std::endl;
+    std::cout << std::left << std::setw(25) << "Layer (type)" 
+              << std::setw(20) << "Output Shape" 
+              << std::setw(15) << "Param #" << std::endl;
+    std::cout << std::string(65, '=') << std::endl;
+
+    int total_params = 0;
+    for (const auto& layer : layers_) {
+        std::string layer_info = layer->get_type();
+        int params = layer->get_parameter_count();
+        total_params += params;
+
+        std::cout << std::left << std::setw(25) << layer_info
+                  << std::setw(20) << (std::to_string(layer->get_output_size()))
+                  << std::setw(15) << params << std::endl;
+    }
+
+    std::cout << std::string(65, '=') << std::endl;
+    std::cout << "Total params: " << total_params << std::endl;
+    std::cout << "Loss Function: " << loss_function_ << std::endl;
+    std::cout << std::string(65, '-') << std::endl;
+}

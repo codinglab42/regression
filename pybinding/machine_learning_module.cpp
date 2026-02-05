@@ -19,23 +19,23 @@
 namespace py = pybind11;
 
 // Convertitore per eccezioni C++ → Python
-void translate_exception(const std::exception& e) {
-    // Controlla se è un'eccezione ML specifica
-    try {
-        throw;
-    } catch (const ml_exception::MLException& ml_e) {
-        // Usa il messaggio già formattato
-        PyErr_SetString(PyExc_RuntimeError, ml_e.what());
-    } catch (const std::invalid_argument& e) {
-        PyErr_SetString(PyExc_ValueError, e.what());
-    } catch (const std::runtime_error& e) {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
-    } catch (const std::exception& e) {
-        PyErr_SetString(PyExc_Exception, e.what());
-    } catch (...) {
-        PyErr_SetString(PyExc_Exception, "Unknown C++ exception");
-    }
-}
+// void translate_exception(const std::exception& e) {
+//     // Controlla se è un'eccezione ML specifica
+//     try {
+//         throw;
+//     } catch (const ml_exception::MLException& ml_e) {
+//         // Usa il messaggio già formattato
+//         PyErr_SetString(PyExc_RuntimeError, ml_e.what());
+//     } catch (const std::invalid_argument& e) {
+//         PyErr_SetString(PyExc_ValueError, e.what());
+//     } catch (const std::runtime_error& e) {
+//         PyErr_SetString(PyExc_RuntimeError, e.what());
+//     } catch (const std::exception& e) {
+//         PyErr_SetString(PyExc_Exception, e.what());
+//     } catch (...) {
+//         PyErr_SetString(PyExc_Exception, "Unknown C++ exception");
+//     }
+// }
 
 PYBIND11_MODULE(machine_learning_module, m) {
     m.doc() = R"pbdoc(
@@ -314,6 +314,9 @@ PYBIND11_MODULE(machine_learning_module, m) {
         .def("predict_proba", &models::NeuralNetwork::predict_proba,
              py::arg("X"),
              "Predict probabilities")
+
+        .def("summary", &models::NeuralNetwork::summary, 
+          "Print a summary of the network architecture")
         
         .def("score", &models::NeuralNetwork::score,
              py::arg("X"), py::arg("y"),

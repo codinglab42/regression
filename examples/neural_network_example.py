@@ -1,5 +1,5 @@
 import numpy as np
-import regression_module as ml
+import machine_learning_module as ml
 import matplotlib.pyplot as plt
 
 def regression_example():
@@ -14,7 +14,7 @@ def regression_example():
     y = X @ true_weights + np.random.randn(n_samples) * 0.1
     
     # Crea e addestra rete neurale
-    nn = ml.NeuralNetwork([5, 64, 32, 1], activation="relu", output_activation="linear")
+    nn = ml.models.NeuralNetwork([5, 64, 32, 1], activation="relu", output_activation="linear")
     nn.set_epochs(100)
     nn.set_batch_size(32)
     nn.set_validation_split(0.2)
@@ -80,7 +80,7 @@ def classification_example():
     )
     
     # Crea e addestra rete neurale
-    nn = ml.NeuralNetwork([10, 128, 64, 32, 1], 
+    nn = ml.models.NeuralNetwork([10, 128, 64, 32, 1], 
                          activation="relu", 
                          output_activation="sigmoid")
     nn.set_epochs(150)
